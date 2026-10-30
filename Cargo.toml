@@ -1,0 +1,22 @@
+[package]
+name = "pf-simulator"
+version = "0.1.0"
+edition = "2024"
+build = "build.rs"
+
+[features]
+raw-benchmark = []
+
+[[example]]
+name = "benchmark_output"
+required-features = ["raw-benchmark"]
+
+[[bin]]
+name = "pf-sim"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4.6.7", features = ["derive"] }
+indicatif = "0.18.6"
+
+# The native build script uses only the standard library.

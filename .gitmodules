@@ -1,0 +1,3 @@
+[submodule "dependencies/iqtree2"]
+	path = dependencies/iqtree2
+	url = https://github.com/iqtree/iqtree2.git

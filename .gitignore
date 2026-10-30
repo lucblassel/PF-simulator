@@ -1,0 +1,5 @@
+/build*/
+/target/
+/simulated_data/
+/example_data/
+__pycache__/
