@@ -19,8 +19,14 @@ extern "C" {
 // A nonzero callback result aborts with an error. No MSA files are written.
 // output_mode=0 is reference FASTA. Mode 1 is numeric output: row bytes, names,
 // alphabet and a one-byte export-unaligned flag use callback kinds 0,1,2,3.
+// Node IDs 0..tips are T1..Tn; IDs tips..2*tips-2 are internal.
+// The Newick display origin is node tips. Edges retain Rust's neighbor order.
+typedef struct pf_tree_edge { uint32_t a; uint32_t b; double length; } pf_tree_edge;
+// edges=NULL selects tree_file input. Otherwise tree_file is only a log label;
+// edges are borrowed for the call and no tree file is opened.
 typedef int (*pf_alisim_output)(const uint8_t* data, size_t size, int kind, void* context);
-int pf_alisim_simulate(const char* tree_file, const char* output_prefix,
+int pf_alisim_simulate(const char* tree_file, const pf_tree_edge* edges,
+                      size_t edge_count, uint32_t tips, const char* output_prefix,
                       const char* model, const char* sequence_type,
                       int32_t length, int32_t seed,
                       const char* indel, const char* indel_size, int no_unaligned,

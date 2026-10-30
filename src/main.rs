@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use clap::{Args, Parser, ValueEnum};
 use indicatif::{ProgressBar, ProgressStyle};
-use pf_simulator::alignment::{AlignmentConfig, SequenceType, simulate_alignment_numeric};
+use pf_simulator::alignment::{AlignmentConfig, SequenceType, simulate_alignment_from_tree};
 use pf_simulator::tree::{Tree, sample_seed};
 
 /// Generate uniform unrooted trees and tip MSAs using linked AliSim.
@@ -165,7 +165,6 @@ fn run() -> Result<(), Box<dyn Error>> {
         let tree = Tree::uniform(config.tips as usize, config.branch_mean, seed)?;
         let name = format!("sample_{sample:06}");
         let tree_file = trees.join(format!("{name}.nwk"));
-        fs::write(&tree_file, tree.newick())?;
         let data = (|| -> Result<_, Box<dyn Error>> {
             let attempts = if config.allow_duplicate_sequences {
                 1
@@ -186,8 +185,8 @@ fn run() -> Result<(), Box<dyn Error>> {
                         attempt + 1
                     ),
                 )?;
-                let data = simulate_alignment_numeric(
-                    &tree_file,
+                let data = simulate_alignment_from_tree(
+                    &tree,
                     &sequences.join(&name),
                     &alignment,
                     alignment_seed,
@@ -212,13 +211,14 @@ fn run() -> Result<(), Box<dyn Error>> {
             Ok(data) => data,
             Err(error) => {
                 progress.abandon_with_message("Simulation failed");
-                fs::remove_file(&tree_file)?;
                 return Err(error);
             }
         };
 
         // Format only accepted numeric rows.
         let data = data.into_fasta();
+        // Newick is an output artifact only, never input to AliSim.
+        fs::write(&tree_file, tree.newick())?;
         // Only accepted alignment bytes reach the filesystem.
         fs::write(sequences.join(format!("{name}.fa")), data.aligned_fasta)?;
         if let Some(unaligned) = data.unaligned_fasta {

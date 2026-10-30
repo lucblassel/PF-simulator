@@ -7,15 +7,24 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use pf_simulator::alignment::{
-    AlignmentConfig, SequenceType, has_duplicate_sequences, simulate_alignment_in_memory,
-    simulate_alignment_raw_benchmark,
+    AlignmentConfig, SequenceType, has_duplicate_sequences, simulate_alignment_from_tree,
+    simulate_alignment_in_memory, simulate_alignment_raw_benchmark,
 };
 use pf_simulator::tree::Tree;
 
+#[derive(Clone, Copy, ValueEnum, PartialEq, Eq)]
+enum Comparison {
+    Output,
+    TreeInput,
+}
+
 #[derive(Parser)]
 struct Args {
+    /// Compare output transports, or isolate file versus direct tree input.
+    #[arg(long, value_enum, default_value = "output")]
+    comparison: Comparison,
     #[arg(long, default_value_t = 7, value_parser = clap::value_parser!(u32).range(3..))]
     rounds: u32,
     #[arg(long, default_value_t = 120)]
@@ -33,6 +42,22 @@ struct Args {
     workloads: Vec<String>,
     #[arg(long, default_value_t = 0.1)]
     branch_mean: f64,
+}
+
+#[derive(Clone, Copy)]
+enum Mode {
+    Fasta,
+    Numeric,
+    NumericTree,
+}
+impl Mode {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Fasta => "fasta",
+            Self::Numeric => "numeric",
+            Self::NumericTree => "numeric_tree",
+        }
+    }
 }
 
 #[derive(Default)]
@@ -61,12 +86,19 @@ fn records(bytes: &[u8]) -> BTreeMap<String, Vec<u8>> {
 
 fn verify(
     tree: &Path,
+    rust_tree: &Tree,
     prefix: &Path,
     config: &AlignmentConfig,
     tips: usize,
 ) -> Result<(), Box<dyn Error>> {
     let fasta = simulate_alignment_in_memory(tree, prefix, config, 123, None)?;
     let raw = simulate_alignment_raw_benchmark(tree, prefix, config, 123)?;
+    let direct = simulate_alignment_from_tree(rust_tree, prefix, config, 123, None)?;
+    assert_eq!(raw.names, direct.names);
+    assert_eq!(raw.alphabet, direct.alphabet);
+    assert_eq!(raw.rows, direct.rows);
+    assert_eq!(raw.export_unaligned, direct.export_unaligned);
+    assert_eq!(raw.export_unaligned, fasta.unaligned_fasta.is_some());
     assert_eq!(raw.rows.len(), tips);
     assert_eq!(raw.names.len(), tips);
     assert!(raw.rows.iter().all(|row| row.len() == raw.rows[0].len()));
@@ -82,8 +114,9 @@ fn verify(
 }
 
 fn measure(
-    raw: bool,
+    mode: Mode,
     tree: &Path,
+    rust_tree: &Tree,
     prefix: &Path,
     config: &AlignmentConfig,
     count: usize,
@@ -93,9 +126,15 @@ fn measure(
     let all = Instant::now();
     for index in 0..count {
         let start = Instant::now();
-        let duplicate = if raw {
-            let data =
-                simulate_alignment_raw_benchmark(tree, prefix, config, first_seed + index as i32)?;
+        let duplicate = if !matches!(mode, Mode::Fasta) {
+            let seed = first_seed + index as i32;
+            let data = match mode {
+                Mode::NumericTree => {
+                    simulate_alignment_from_tree(rust_tree, prefix, config, seed, None)?
+                }
+                Mode::Numeric => simulate_alignment_raw_benchmark(tree, prefix, config, seed)?,
+                Mode::Fasta => unreachable!(),
+            };
             timing.simulation += start.elapsed().as_secs_f64();
             let start = Instant::now();
             let duplicate = black_box(data.has_duplicates());
@@ -103,7 +142,7 @@ fn measure(
             if !duplicate {
                 let start = Instant::now();
                 black_box(data.to_fasta(false));
-                if config.indel.is_some() && !config.no_unaligned {
+                if data.export_unaligned {
                     black_box(data.to_fasta(true));
                 }
                 timing.serialization += start.elapsed().as_secs_f64();
@@ -142,9 +181,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Err("Unknown benchmark case".into());
     }
     let timestamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+    let (baseline, candidate, output_name) = match args.comparison {
+        Comparison::Output => (Mode::Fasta, Mode::Numeric, "output-comparison"),
+        Comparison::TreeInput => (Mode::Numeric, Mode::NumericTree, "tree-input-comparison"),
+    };
     let output = args
         .output
-        .unwrap_or_else(|| format!("benchmarks/output-comparison-{timestamp}.csv").into());
+        .unwrap_or_else(|| format!("benchmarks/{output_name}-{timestamp}.csv").into());
     if let Some(parent) = output.parent().filter(|path| !path.as_os_str().is_empty()) {
         fs::create_dir_all(parent)?;
     }
@@ -176,7 +219,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
     for (tips, length) in sizes {
         let tree = directory.join("tree.nwk");
-        fs::write(&tree, Tree::uniform(tips, args.branch_mean, 42)?.newick())?;
+        let rust_tree = Tree::uniform(tips, args.branch_mean, 42)?;
+        fs::write(&tree, rust_tree.newick())?;
         let prefix = directory.join("virtual");
         for model in models {
             if !args.cases.is_empty() && !args.cases.iter().any(|case| case == model) {
@@ -201,8 +245,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                     .then(|| "POW{1.7/100},POW{1.7/100}".into()),
                 no_unaligned: false,
             };
-            verify(&tree, &prefix, &config, tips)?;
-            let estimate = measure(false, &tree, &prefix, &config, 1, 123)?.pipeline;
+            verify(&tree, &rust_tree, &prefix, &config, tips)?;
+            let estimate = measure(baseline, &tree, &rust_tree, &prefix, &config, 1, 123)?.pipeline;
             let count = ((args.target_ms as f64 / 1000.0 / estimate).ceil() as usize).clamp(1, 128);
             eprintln!(
                 "{tips} tips, {length} sites, {model}: {} paired rounds of {count} attempts",
@@ -210,21 +254,33 @@ fn main() -> Result<(), Box<dyn Error>> {
             );
             for round in 0..args.rounds {
                 // Alternate order to reduce bias from warm-up and thermal drift.
-                let first_raw = round % 2 == 1;
+                let (first_mode, second_mode) = if round % 2 == 1 {
+                    (candidate, baseline)
+                } else {
+                    (baseline, candidate)
+                };
                 let seed = 1000 + round as i32 * 1000;
-                let first = measure(first_raw, &tree, &prefix, &config, count, seed)?;
-                let second = measure(!first_raw, &tree, &prefix, &config, count, seed)?;
+                let first = measure(first_mode, &tree, &rust_tree, &prefix, &config, count, seed)?;
+                let second = measure(
+                    second_mode,
+                    &tree,
+                    &rust_tree,
+                    &prefix,
+                    &config,
+                    count,
+                    seed,
+                )?;
                 assert_eq!(
                     first.flags, second.flags,
                     "Duplicate decisions differ between transports"
                 );
-                for (raw, timing) in [(first_raw, first), (!first_raw, second)] {
+                for (mode, timing) in [(first_mode, first), (second_mode, second)] {
                     let scale = 1000.0 / count as f64;
                     writeln!(
                         csv,
                         "{model},{tips},{length},{},{},{round},{count},{:.9},{:.9},{:.9},{:.9},{}",
                         args.branch_mean,
-                        if raw { "numeric" } else { "fasta" },
+                        mode.label(),
                         timing.simulation * scale,
                         timing.check * scale,
                         timing.serialization * scale,

@@ -1,5 +1,5 @@
-# Adapt generated copies, leaving the pinned vendor checkout unchanged. Limit
-# replacements to the writer functions; fail configuration if their anchors
+# Adapt generated copies, leaving the pinned vendor checkout unchanged. Required
+# anchors cover tree loading and sequence writers; fail configuration if they
 # change rather than silently falling back to disk I/O after a vendor upgrade.
 function(pf_replace_required variable before after)
     string(FIND "${${variable}}" "${before}" position)
@@ -28,6 +28,13 @@ function(pf_memory_source target relative begin end)
     set(source "${prefix}${writer}${suffix}")
     # Numeric mode bypasses FASTA and indel numeric-text serialization.
     if(target STREQUAL "simulator")
+        # Adapt initial loading and heterotachy's second native-tree allocation.
+        pf_replace_required(source
+            "tree->readTree(params->user_file, is_rooted);"
+            "pf::read_tree(*tree, params->user_file, is_rooted);")
+        pf_replace_required(source
+            "tree->IQTree::readTree(params->user_file, is_rooted);"
+            "pf::read_tree(*tree, params->user_file, is_rooted);")
         pf_replace_required(source
             "void AliSimulator::writeInternalStatesIndels(Node* node, ostream &out)\n{"
             "void AliSimulator::writeInternalStatesIndels(Node* node, ostream &out)\n{\n    if (pf::raw_enabled()) {\n        pf::raw_state().originals.push_back({node->name, std::move(node->sequence->sequence_chunks[0])});\n        map_seqname_node[node->name] = node;\n        return;\n    }")
@@ -54,7 +61,7 @@ function(pf_memory_source target relative begin end)
     get_filename_component(filename "${original}" NAME)
     get_filename_component(source_directory "${original}" DIRECTORY)
     set(generated "${CMAKE_CURRENT_BINARY_DIR}/memory_${filename}")
-    set(content "#include \"${CMAKE_CURRENT_SOURCE_DIR}/native/memory_io.hpp\"\n#include \"${CMAKE_CURRENT_SOURCE_DIR}/native/numeric_output.hpp\"\n${source}")
+    set(content "#include \"${CMAKE_CURRENT_SOURCE_DIR}/native/memory_io.hpp\"\n#include \"${CMAKE_CURRENT_SOURCE_DIR}/native/numeric_output.hpp\"\n#include \"${CMAKE_CURRENT_SOURCE_DIR}/native/tree_input.hpp\"\n${source}")
     # configure_file avoids touching the copy when its contents are unchanged.
     set(template "${CMAKE_CURRENT_BINARY_DIR}/memory_${filename}.in")
     file(WRITE "${template}" "@content@")

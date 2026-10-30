@@ -4,11 +4,28 @@ use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 use std::sync::Mutex;
 
+use crate::tree::Tree;
+
+#[repr(C)]
+struct TreeEdge {
+    a: u32,
+    b: u32,
+    length: f64,
+}
+
+enum TreeInput<'a> {
+    File(&'a Path),
+    Structure(&'a Tree),
+}
+
 static ALISIM_LOCK: Mutex<()> = Mutex::new(());
 
 unsafe extern "C" {
     fn pf_alisim_simulate(
         tree_file: *const c_char,
+        edges: *const TreeEdge,
+        edge_count: usize,
+        tips: u32,
         output_prefix: *const c_char,
         model: *const c_char,
         sequence_type: *const c_char,
@@ -205,7 +222,15 @@ pub fn simulate_alignment_in_memory(
     seed: i32,
     log_path: Option<&Path>,
 ) -> Result<AlignmentOutput, String> {
-    simulate_output(tree_file, output_prefix, config, seed, log_path, 0).map(|output| output.fasta)
+    simulate_output(
+        TreeInput::File(tree_file),
+        output_prefix,
+        config,
+        seed,
+        log_path,
+        0,
+    )
+    .map(|output| output.fasta)
 }
 
 /// Simulate numeric tip rows without FASTA or temporary alignment files.
@@ -216,7 +241,36 @@ pub fn simulate_alignment_numeric(
     seed: i32,
     log_path: Option<&Path>,
 ) -> Result<RawAlignment, String> {
-    let data = simulate_output(tree_file, output_prefix, config, seed, log_path, 1)?;
+    numeric_output(simulate_output(
+        TreeInput::File(tree_file),
+        output_prefix,
+        config,
+        seed,
+        log_path,
+        1,
+    )?)
+}
+
+/// Simulate directly from Rust's edge list, without tree I/O or Newick conversion.
+/// IQ-TREE owns its native nodes; the Rust tree is borrowed only for this call.
+pub fn simulate_alignment_from_tree(
+    tree: &Tree,
+    output_prefix: &Path,
+    config: &AlignmentConfig,
+    seed: i32,
+    log_path: Option<&Path>,
+) -> Result<RawAlignment, String> {
+    numeric_output(simulate_output(
+        TreeInput::Structure(tree),
+        output_prefix,
+        config,
+        seed,
+        log_path,
+        1,
+    )?)
+}
+
+fn numeric_output(data: OutputCollector) -> Result<RawAlignment, String> {
     let raw = data.raw.ok_or("No numeric alignment returned")?;
     if raw.rows.is_empty()
         || raw.names.len() != raw.rows.len()
@@ -246,7 +300,7 @@ pub fn simulate_alignment_raw_benchmark(
 }
 
 fn simulate_output(
-    tree_file: &Path,
+    tree_input: TreeInput<'_>,
     output_prefix: &Path,
     config: &AlignmentConfig,
     seed: i32,
@@ -259,9 +313,26 @@ fn simulate_output(
     if config.model.is_empty() {
         return Err("Model must not be empty".into());
     }
-    if !tree_file.is_file() {
-        return Err(format!("Tree does not exist: {}", tree_file.display()));
-    }
+    let (tree_file, edges, tips) = match tree_input {
+        TreeInput::File(path) => {
+            if !path.is_file() {
+                return Err(format!("Tree does not exist: {}", path.display()));
+            }
+            (path, Vec::new(), 0)
+        }
+        TreeInput::Structure(tree) => {
+            let edges = tree
+                .edges()
+                .iter()
+                .map(|edge| TreeEdge {
+                    a: edge.a as u32,
+                    b: edge.b as u32,
+                    length: edge.length,
+                })
+                .collect();
+            (Path::new("<in-memory-tree>"), edges, tree.tips() as u32)
+        }
+    };
 
     let cstring = |bytes: &[u8]| {
         CString::new(bytes).map_err(|_| "FFI strings cannot contain NUL bytes".to_string())
@@ -293,11 +364,19 @@ fn simulate_output(
         .map_err(|_| "AliSim lock was poisoned".to_string())?;
 
     // SAFETY: all input strings live through the call and are NUL-terminated;
+    // the C-compatible edge array also lives through the call and is read-only.
     // error is writable for the supplied capacity. The mutex excludes concurrent
     // use of IQ-TREE globals, and the C++ bridge catches foreign exceptions.
     let status = unsafe {
         pf_alisim_simulate(
             tree.as_ptr(),
+            if edges.is_empty() {
+                std::ptr::null()
+            } else {
+                edges.as_ptr()
+            },
+            edges.len(),
+            tips,
             output.as_ptr(),
             model.as_ptr(),
             sequence_type.as_ptr(),

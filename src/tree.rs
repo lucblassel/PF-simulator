@@ -18,6 +18,10 @@ pub struct Tree {
 }
 
 impl Tree {
+    pub fn tips(&self) -> usize {
+        self.tips
+    }
+
     pub fn edges(&self) -> &[Edge] {
         &self.edges
     }

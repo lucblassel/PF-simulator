@@ -1,5 +1,6 @@
 #include "alisim_bridge.h"
 #include "memory_io.hpp"
+#include "tree_input.hpp"
 #include "numeric_output.hpp"
 #include "main/alisim.h"
 
@@ -130,7 +131,8 @@ void simulate(const char* tree_file, const char* output_prefix, const char* mode
 
 }  // namespace
 
-extern "C" int pf_alisim_simulate(const char* tree_file, const char* output_prefix,
+extern "C" int pf_alisim_simulate(const char* tree_file, const pf_tree_edge* edges,
+                                 size_t edge_count, uint32_t tips, const char* output_prefix,
                                  const char* model, const char* sequence_type,
                                  int32_t length, int32_t seed,
                                  const char* indel, const char* indel_size, int no_unaligned,
@@ -154,6 +156,7 @@ extern "C" int pf_alisim_simulate(const char* tree_file, const char* output_pref
         OutputRedirect output(log_path);
         if (output_mode != 0 && output_mode != 1) throw std::invalid_argument("Invalid output mode");
         pf::RawSession raw(output_mode == 1);
+        pf::TreeSession input_tree(edges, edge_count, tips);
         simulate(tree_file, output_prefix, model, sequence_type, length, seed,
                  indel, indel_size, no_unaligned != 0, callback, context);
         output.finish();

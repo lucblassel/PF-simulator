@@ -1,8 +1,11 @@
 # PF simulator
 
+
 A Rust executable generating uniform unrooted binary trees and MSAs using
 IQ-TREE/AliSim through a small C ABI bridge. Defaults: 10 tips, 500 amino acids, LG,
 independent exponential branch lengths with mean 0.1 substitutions/site.
+
+***Disclaimer:** This piece of software is being developed with the help of an LLM.*
 
 ## Build
 
@@ -44,8 +47,10 @@ the full alignment; gap-free outputs can still match when gap placement differs.
 AliSim returns numeric sequence rows to Rust through an in-memory adapter.
 Duplicate checking compares those rows directly, including gap positions. Only
 accepted attempts are converted to FASTA and written to disk. Indel reconstruction
-also stays numeric, avoiding the intermediate text round trip. Rows remain in RAM;
-tree files are still read by AliSim on each attempt.
+also stays numeric, avoiding the intermediate text round trip. Rows remain in RAM.
+The Rust tree is passed as numeric edges and branch lengths; the bridge builds
+IQ-TREE nodes directly without Newick conversion or tree-file reads. Accepted
+trees are serialized once to Newick for the output dataset.
 
 `--indel INS,DEL` and `--indel-size 'INS_DIST,DEL_DIST'` pass their values
 directly to AliSim, which parses and validates them. Rates are relative to
@@ -96,16 +101,32 @@ Application code is in `src/main.rs` (CLI/output), `src/tree.rs` (trees), and
 Use `cargo build --release -j 8` for an optimized binary in `target/release/pf-sim`.
 `cargo test` runs Rust unit tests and the end-to-end checks (Python 3 required).
 
-## Output performance comparison
+## Bridge performance comparisons
 
-[Measured results](benchmarks/REPORT.md) compare the original FASTA transport
-with the numeric transport now used by default. Run the comparison with:
+[Measured results](benchmarks/REPORT.md) separately compare FASTA versus numeric
+output and file-based versus direct tree input. Build the harness once, then run:
 
 ```sh
-cargo run --release --features raw-benchmark --example benchmark_output -- --rounds 9
+cargo build --release --features raw-benchmark --example benchmark_output
+./target/release/examples/benchmark_output --comparison tree-input --rounds 9 --target-ms 200
+./target/release/examples/benchmark_output --comparison output --rounds 9 --target-ms 200
+python3 benchmarks/summarize.py
 ```
 
 Numeric checking is enabled in normal builds; the feature only enables the
 comparison harness. The original FASTA adapter remains as a reference.
 The harness checks sequence equivalence and includes FASTA conversion of accepted
 numeric output in its timings. It excludes final filesystem writes.
+
+# TODOs
+- [ ] Compare output to previous python pipeline thoroughly
+- [ ] Implement topology choices  
+    (need revbayes or MrBayes dep?, implement these in [`phylotree-rs`](https://github.com/lucblassel/phylotree-rs) and use that as a dependecy?)
+    - [ ] Birth death
+    - [x] Uniform
+    - [ ] ete3's "uniform"
+    - [ ] Gamma branch lengths
+    - [ ] Rescaled birth-death branches
+    - [ ] rescaling to empirical diameters
+- [ ] Implement parallel simulation
+- [ ] Simulate directly into new packed and sharded dataset format

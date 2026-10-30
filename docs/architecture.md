@@ -13,13 +13,15 @@ CLI / sample configuration / deterministic per-sample seeds
 The implementation keeps the tree representation independent of vendor types.
 `src/tree.rs` samples trees, `src/alignment.rs` exposes the safe AliSim API,
 and `src/main.rs` controls sample IDs and file output. C++ is isolated in
-`native/alisim_bridge.cpp`; vendor headers never enter the Rust application. The AliSim adapter reads the serialized
-Newick and returns numeric tip rows to Rust before any sequence files are written.
+`native/alisim_bridge.cpp`; vendor headers never enter the Rust application. The
+AliSim adapter accepts numeric edges and lengths, builds native IQ-TREE nodes, and
+returns numeric tip rows. Newick is serialized only for accepted output trees.
 
 ## Rust and the FFI boundary
 
 The bridge exports one `extern "C"` function. It accepts borrowed NUL-terminated
-strings and fixed-width integer settings, returns an integer status, and writes
+strings, fixed-width integer settings and an array of C-compatible tree edges,
+returns an integer status, and writes
 errors into a buffer allocated by Rust. A synchronous callback copies numeric
 rows, names, the state alphabet and gap-free export metadata into Rust-owned vectors. C++ objects and
 allocations remain on the C++ side; no pointers outlive a callback. The bridge catches C++ exceptions; none may cross this ABI.
@@ -95,6 +97,23 @@ explicitly: fixed tip count alone does not specify a birth–death distribution.
 Reproducing the old Python workflow also requires its inherited branch-rate
 process, empirical diameter draws, and terminal-branch adjustments.
 
+## Direct tree input
+
+`simulate_alignment_from_tree(&Tree, ...)` passes a numeric edge array through
+FFI. Rust retains its own tree type. `native/tree_input.hpp` validates the edge
+list and uses IQ-TREE's virtual `newNode` factory and `addNeighbor` methods to
+construct the native tree AliSim expects. No Newick formatting, parsing or tree
+file reads occur on this path. Native nodes belong to IQ-TREE and do not escape
+the call. A scoped session clears input state on return or exception.
+
+The conversion preserves the Newick reader's leaf IDs, neighbor order and root
+selection, since traversal order changes RNG consumption. Topology, lengths and
+sequence results are compared against file-based input with identical seeds.
+Each retry builds a fresh native tree because AliSim modifies its nodes. The
+accepted Rust tree is written once as a Newick output artifact. Direct input
+currently represents the application's unrooted binary trees with one length per
+edge, without partition trees, node annotations or class-specific branch lengths.
+
 ## In-memory output and duplicate retries
 
 Upstream `runAliSim` orchestrates the simulation. Without indels, output flows
@@ -110,8 +129,8 @@ with `MemoryOutputFile`, and the indel temporary-data reader with
 `MemoryInputFile`; temporary-data cleanup erases the corresponding memory entry.
 The reference FASTA mode preserves upstream serialization. Numeric mode instead
 captures tip states and reconstructs indel alignments without the text round trip.
-Input tree files and
-optional logs still use real files. The adapter is limited to the current
+The CLI supplies a Rust tree directly; optional logs still use real files.
+The file-based input APIs remain available for reference comparisons. The adapter is limited to the current
 single-threaded, uncompressed FASTA configuration; new compression, partition,
 or output-format options would require auditing the additional I/O paths.
 
@@ -136,8 +155,9 @@ seed; subsequent attempts increment it modulo the supported seed range. Seeds
 are distinct within a sample and independent of attempts consumed by other
 samples. `--allow-duplicate-sequences` bypasses the check and runs once.
 
-Only accepted MSAs are written. Exhaustion aborts the run with a nonzero exit,
-removes the failed sample's input tree, and retains earlier accepted pairs.
+Only accepted trees and MSAs are written. Exhaustion aborts the run with a
+nonzero exit and retains earlier accepted pairs. Failed attempts need no tree
+or alignment file cleanup.
 This differs from the old Python batch script, which skipped exhausted samples
 and reported them after the batch. AliSim errors that call `exit()` remain a
 separate, unrecoverable upstream behavior.
@@ -151,9 +171,11 @@ aligned FASTA and, when requested by AliSim, gap-free FASTA.
 
 The `raw-benchmark` feature enables the comparison harness. The original FASTA
 adapter remains available through `simulate_alignment_in_memory` as a reference;
-`simulate_alignment_numeric` is the API used by the CLI. Regression comparisons
+`simulate_alignment_from_tree` is the API used by the CLI;
+`simulate_alignment_numeric` retains file-based tree input for comparisons. Regression comparisons
 cover LG, discrete/continuous gamma, invariant sites and JC, with and without
-indels, plus 200-tip trees and zero-rate/no-unaligned settings.
+indels, plus 200-tip trees and zero-rate/no-unaligned settings. Direct-tree comparisons
+also exercise the heterotachy tree-reload path with LG+H2.
 See `benchmarks/REPORT.md` for measured costs, methodology and limitations.
 
 ## Scaling and packed output
