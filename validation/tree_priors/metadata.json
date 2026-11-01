@@ -1,0 +1,188 @@
+{
+  "samples_per_case": 3000,
+  "tips": [
+    10,
+    50,
+    200
+  ],
+  "python_script": "/Users/lucblassel/Work/bayesnj_simulation/scripts/SimulateAlterRescale.py",
+  "python_script_sha256": "b8e52d6b4c2fa8f5b9b6e43312f0f480f34e552ab8bdf77e2904bab0f68897b7",
+  "versions": {
+    "ete3": "3.1.3",
+    "dendropy": "5.0.8",
+    "numpy": "2.4.1"
+  },
+  "number_of_tests": 228,
+  "family_alpha": 0.01,
+  "ks_threshold": 0.05979872628382224,
+  "invariants": [
+    {
+      "case": "bd_raw",
+      "tips": 10,
+      "implementation": "rust",
+      "two_newborn_zero_edges": true,
+      "ultrametric": true
+    },
+    {
+      "case": "bd_raw",
+      "tips": 10,
+      "implementation": "python",
+      "two_newborn_zero_edges": true,
+      "ultrametric": true
+    },
+    {
+      "case": "bd_raw",
+      "tips": 50,
+      "implementation": "rust",
+      "two_newborn_zero_edges": true,
+      "ultrametric": true
+    },
+    {
+      "case": "bd_raw",
+      "tips": 50,
+      "implementation": "python",
+      "two_newborn_zero_edges": true,
+      "ultrametric": true
+    },
+    {
+      "case": "bd_raw",
+      "tips": 200,
+      "implementation": "rust",
+      "two_newborn_zero_edges": true,
+      "ultrametric": true
+    },
+    {
+      "case": "bd_raw",
+      "tips": 200,
+      "implementation": "python",
+      "two_newborn_zero_edges": true,
+      "ultrametric": true
+    },
+    {
+      "case": "bd_python",
+      "tips": 10,
+      "implementation": "rust",
+      "terminal_floor": true,
+      "diameter_not_shrunk_by_floor": true
+    },
+    {
+      "case": "bd_python",
+      "tips": 10,
+      "implementation": "python",
+      "terminal_floor": true,
+      "diameter_not_shrunk_by_floor": true
+    },
+    {
+      "case": "bd_python",
+      "tips": 50,
+      "implementation": "rust",
+      "terminal_floor": true,
+      "diameter_not_shrunk_by_floor": true
+    },
+    {
+      "case": "bd_python",
+      "tips": 50,
+      "implementation": "python",
+      "terminal_floor": true,
+      "diameter_not_shrunk_by_floor": true
+    },
+    {
+      "case": "bd_python",
+      "tips": 200,
+      "implementation": "rust",
+      "terminal_floor": true,
+      "diameter_not_shrunk_by_floor": true
+    },
+    {
+      "case": "bd_python",
+      "tips": 200,
+      "implementation": "python",
+      "terminal_floor": true,
+      "diameter_not_shrunk_by_floor": true
+    },
+    {
+      "case": "bd_python_bl",
+      "tips": 10,
+      "implementation": "rust",
+      "terminal_floor": true,
+      "diameter_not_shrunk_by_floor": true
+    },
+    {
+      "case": "bd_python_bl",
+      "tips": 10,
+      "implementation": "python",
+      "terminal_floor": true,
+      "diameter_not_shrunk_by_floor": true
+    },
+    {
+      "case": "bd_python_bl",
+      "tips": 50,
+      "implementation": "rust",
+      "terminal_floor": true,
+      "diameter_not_shrunk_by_floor": true
+    },
+    {
+      "case": "bd_python_bl",
+      "tips": 50,
+      "implementation": "python",
+      "terminal_floor": true,
+      "diameter_not_shrunk_by_floor": true
+    },
+    {
+      "case": "bd_python_bl",
+      "tips": 200,
+      "implementation": "rust",
+      "terminal_floor": true,
+      "diameter_not_shrunk_by_floor": true
+    },
+    {
+      "case": "bd_python_bl",
+      "tips": 200,
+      "implementation": "python",
+      "terminal_floor": true,
+      "diameter_not_shrunk_by_floor": true
+    }
+  ],
+  "raw_files": [
+    "bd_raw-10-rust.csv.gz",
+    "bd_raw-10-python.csv.gz",
+    "bd_raw-50-rust.csv.gz",
+    "bd_raw-50-python.csv.gz",
+    "bd_raw-200-rust.csv.gz",
+    "bd_raw-200-python.csv.gz",
+    "bd_altered-10-rust.csv.gz",
+    "bd_altered-10-python.csv.gz",
+    "bd_altered-50-rust.csv.gz",
+    "bd_altered-50-python.csv.gz",
+    "bd_altered-200-rust.csv.gz",
+    "bd_altered-200-python.csv.gz",
+    "bd_python-10-rust.csv.gz",
+    "bd_python-10-python.csv.gz",
+    "bd_python-50-rust.csv.gz",
+    "bd_python-50-python.csv.gz",
+    "bd_python-200-rust.csv.gz",
+    "bd_python-200-python.csv.gz",
+    "bd_python_bl-10-rust.csv.gz",
+    "bd_python_bl-10-python.csv.gz",
+    "bd_python_bl-50-rust.csv.gz",
+    "bd_python_bl-50-python.csv.gz",
+    "bd_python_bl-200-rust.csv.gz",
+    "bd_python_bl-200-python.csv.gz",
+    "ete3-10-rust.csv.gz",
+    "ete3-10-python.csv.gz",
+    "ete3-50-rust.csv.gz",
+    "ete3-50-python.csv.gz",
+    "ete3-200-rust.csv.gz",
+    "ete3-200-python.csv.gz",
+    "control_bd_wrong_death-50-rust.csv.gz",
+    "control_bd_wrong_death-50-python.csv.gz",
+    "control_ete_vs_yule-4-rust.csv.gz",
+    "control_ete_vs_yule-4-python.csv.gz"
+  ],
+  "rust_seed_base": 271828,
+  "python_seed_base": 314159,
+  "max_python_serialization_relative_error": 4.9950285603630805e-06,
+  "rust_binary_sha256": "850f6f5d223b966ea3b55cbbe0153799341707365ce20ce6b01e88cda4d77c34",
+  "original_comparison_binary_sha256": "52ea650e975373b70e0d694571f30c3bb97959ceaa50d5d5bf2d6b4d00350003",
+  "final_binary_reproduced_rust_samples": 51000
+}

@@ -19,7 +19,8 @@ extern "C" {
 // A nonzero callback result aborts with an error. No MSA files are written.
 // output_mode=0 is reference FASTA. Mode 1 is numeric output: row bytes, names,
 // alphabet and a one-byte export-unaligned flag use callback kinds 0,1,2,3.
-// Node IDs 0..tips are T1..Tn; IDs tips..2*tips-2 are internal.
+// Node IDs 0..tips are T1..Tn; other IDs are internal.
+// Edge count 2*tips-3 means unrooted; 2*tips-2 means rooted (binary).
 // The Newick display origin is node tips. Edges retain Rust's neighbor order.
 typedef struct pf_tree_edge { uint32_t a; uint32_t b; double length; } pf_tree_edge;
 // edges=NULL selects tree_file input. Otherwise tree_file is only a log label;

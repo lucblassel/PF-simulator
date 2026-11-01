@@ -10,6 +10,7 @@
 namespace pf {
 struct TreeInput {
     uint32_t tips = 0;
+    bool rooted = false;
     std::vector<std::vector<std::pair<uint32_t, double>>> neighbors;
 };
 inline TreeInput& tree_input() { static TreeInput input; return input; }
@@ -23,11 +24,12 @@ struct TreeSession {
             if (count || tips) throw std::invalid_argument("Missing tree edges");
             return;
         }
-        if (tips < 3 || tips > 10000 || count != 2 * size_t(tips) - 3)
-            throw std::invalid_argument("Invalid unrooted binary tree dimensions");
+        if (tips < 3 || tips > 10000 || (count != 2 * size_t(tips) - 3 && count != 2 * size_t(tips) - 2))
+            throw std::invalid_argument("Invalid binary tree dimensions");
         TreeInput input;
         input.tips = tips;
-        input.neighbors.resize(2 * size_t(tips) - 2);
+        input.rooted = count == 2 * size_t(tips) - 2;
+        input.neighbors.resize(count + 1);
         for (size_t i = 0; i < count; ++i) {
             const auto& edge = edges[i];
             if (edge.a >= input.neighbors.size() || edge.b >= input.neighbors.size() ||
@@ -37,7 +39,7 @@ struct TreeSession {
             input.neighbors[edge.b].push_back({edge.a, edge.length});
         }
         for (size_t i = 0; i < input.neighbors.size(); ++i)
-            if (input.neighbors[i].size() != (i < tips ? 1U : 3U))
+            if (input.neighbors[i].size() != (i < tips ? 1U : (input.rooted && i == tips ? 2U : 3U)))
                 throw std::invalid_argument("Invalid tree node degree");
         // Validate connectivity before any recursive IQ-TREE operation.
         std::vector<bool> seen(input.neighbors.size(), false);
@@ -106,16 +108,27 @@ inline void read_tree(IQTree& tree, const char* filename, bool& is_rooted) {
             if (it->first != visit.parent)
                 stack.push_back({it->first, visit.node, it->second, false});
     }
-    for (const auto& neighbor : input.neighbors[input.tips])
+    if (!input.rooted) for (const auto& neighbor : input.neighbors[input.tips])
         if (neighbor.first < input.tips) {
             root = nodes[neighbor.first].get();
             break;
         }
 
+    std::unique_ptr<Node> root_leaf;
+    if (input.rooted) {
+        // Match MTree's explicit virtual root leaf for a bifurcating Newick root.
+        root_leaf.reset(tree.newNode(input.tips, ROOT_NAME));
+        auto* crown = nodes[input.tips].get();
+        crown->addNeighbor(root_leaf.get(), 0.0);
+        root_leaf->addNeighbor(crown, 0.0);
+        root = root_leaf.get();
+    }
     tree.root = root;
-    tree.leafNum = input.tips;
-    tree.rooted = is_rooted = false;
+    tree.leafNum = input.tips + (input.rooted ? 1 : 0);
+    tree.rooted = is_rooted = input.rooted;
+    root_leaf.release();
     for (auto& node : nodes) node.release();
     tree.initializeTree();
+    if (input.rooted) tree.computeBranchDirection();
 }
 } // namespace pf

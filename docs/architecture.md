@@ -11,7 +11,9 @@ CLI / sample configuration / deterministic per-sample seeds
 ```
 
 The implementation keeps the tree representation independent of vendor types.
-`src/tree.rs` samples trees, `src/alignment.rs` exposes the safe AliSim API,
+`phylotree::simulation` samples trees; `src/tree_simulation.rs` applies the Python
+rate/diameter pipeline and `src/tree.rs` adapts the resulting tree.
+`src/alignment.rs` exposes the safe AliSim API,
 and `src/main.rs` controls sample IDs and file output. C++ is isolated in
 `native/alisim_bridge.cpp`; vendor headers never enter the Rust application. The
 AliSim adapter accepts numeric edges and lengths, builds native IQ-TREE nodes, and
@@ -60,7 +62,7 @@ currently supports host builds on macOS/Linux; macOS ARM64 has been tested.
 See the [Cargo build script reference](https://doc.rust-lang.org/cargo/reference/build-scripts.html)
 and [Rust FFI guide](https://doc.rust-lang.org/nomicon/ffi.html).
 
-## Why link AliSim but avoid RevBayes for the first prior?
+## AliSim and Rust tree priors
 
 AliSim supplies the substitution machinery already used in the original workflow,
 including LG and gamma models. The local IQ-TREE source supports `BUILD_LIB=ON`;
@@ -89,18 +91,18 @@ independently after topology generation. The degree-three Newick serialization
 root has no biological interpretation. This is distinct from a uniform rooted
 prior, a Yule prior, and choosing arbitrary pairs of lineages to merge.
 
-RevBayes becomes useful if its particular birth–death or constrained priors are
-required. Add a separate adapter around its core distribution classes and convert
-the resulting tree to the application representation. Keep its Rev interpreter,
-DAG objects, RNG, and tree ownership inside that adapter. Match conditioning
-explicitly: fixed tip count alone does not specify a birth–death distribution.
-Reproducing the old Python workflow also requires its inherited branch-rate
-process, empirical diameter draws, and terminal-branch adjustments.
+The `phylotree` crate now also implements the ETE3 deque process, actual Yule
+topologies and DendroPy-compatible first-hit birth–death times. PF-simulator
+applies the inherited-rate, empirical-diameter and terminal-repair steps in
+the Python order. See [tree-prior definitions](tree-priors.md) and the
+[distribution comparison](../validation/tree_priors/REPORT.md). Fixed tip count
+alone does not specify a birth–death prior; the stopping rule, extinction
+restarts, pruning and crown/stem convention are explicit.
 
 ## Direct tree input
 
 `simulate_alignment_from_tree(&Tree, ...)` passes a numeric edge array through
-FFI. Rust retains its own tree type. `native/tree_input.hpp` validates the edge
+FFI. Rust retains the `phylotree` tree behind a small application adapter. `native/tree_input.hpp` validates the edge
 list and uses IQ-TREE's virtual `newNode` factory and `addNeighbor` methods to
 construct the native tree AliSim expects. No Newick formatting, parsing or tree
 file reads occur on this path. Native nodes belong to IQ-TREE and do not escape
@@ -111,8 +113,8 @@ selection, since traversal order changes RNG consumption. Topology, lengths and
 sequence results are compared against file-based input with identical seeds.
 Each retry builds a fresh native tree because AliSim modifies its nodes. The
 accepted Rust tree is written once as a Newick output artifact. Direct input
-currently represents the application's unrooted binary trees with one length per
-edge, without partition trees, node annotations or class-specific branch lengths.
+represents rooted and unrooted binary trees with one length per
+edge (rooted inputs add IQ-TREE's zero-length virtual root leaf), without partition trees, node annotations or class-specific branch lengths.
 
 ## In-memory output and duplicate retries
 
@@ -155,12 +157,18 @@ seed; subsequent attempts increment it modulo the supported seed range. Seeds
 are distinct within a sample and independent of attempts consumed by other
 samples. `--allow-duplicate-sequences` bypasses the check and runs once.
 
-Only accepted trees and MSAs are written. Exhaustion aborts the run with a
-nonzero exit and retains earlier accepted pairs. Failed attempts need no tree
-or alignment file cleanup.
-This differs from the old Python batch script, which skipped exhausted samples
-and reported them after the batch. AliSim errors that call `exit()` remain a
-separate, unrecoverable upstream behavior.
+Only accepted trees and MSAs are written. On exhaustion,
+`SimulationError::DuplicateSequences` identifies the sample and attempt count.
+The CLI counts the failure, logs the skip when a log is enabled, advances the
+progress bar, and continues. `--samples` counts requested simulations; skipped
+IDs remain gaps, preserving later sample seeds. The final summary reports
+written and failed counts, and duplicate exhaustion alone does not cause a
+nonzero exit. This matches the old Python batch script's skip-and-report behavior.
+
+`SimulationError::Other` wraps errors returned by AliSim or attempt logging;
+these remain fatal. Tree-generation and output I/O errors also stop the run.
+Failed attempts need no tree or alignment file cleanup. AliSim errors that call
+`exit()` remain a separate, unrecoverable upstream behavior.
 
 Numeric transport is enabled in ordinary builds. `native/numeric_output.hpp`
 captures tip states before FASTA conversion and retains numeric indel originals.
@@ -180,22 +188,58 @@ See `benchmarks/REPORT.md` for measured costs, methodology and limitations.
 
 ## Scaling and packed output
 
-Use one isolated worker process per independent batch initially. IQ-TREE uses
-singleton parameters, global RNGs, and error paths that can terminate the process;
-the adapter is not a reentrant or recoverable service API. The example disables
-OpenMP/MPI and calls it sequentially. Avoid concurrent simulations from threads without the Rust wrapper
-until the integration has been refactored and tested for that purpose.
+`--jobs N` uses N persistent child processes of the same executable, capped at
+the requested sample count. One job keeps the original direct sequential path.
+IQ-TREE uses singleton parameters, global RNGs, and error paths that can terminate
+the process, so the adapter remains serialized inside each worker. OpenMP/MPI
+remain disabled. The process boundary provides independent native state without
+making the C++ integration reentrant.
+
+The parent creates output directories once. One lightweight coordinator thread
+per worker sends a sample ID over stdin, then reads its written/skipped result
+from stdout. A shared atomic counter assigns the next ID when a worker finishes,
+balancing samples with different retry costs. Workers generate trees, simulate,
+check duplicates, serialize accepted results, and write distinct output files.
+Only small completion messages pass through the parent's status channel; trees
+and MSAs stay inside the worker. No dedicated writer or bulk-data IPC is needed.
+
+The parent alone updates the progress bar and counts outcomes. Duplicate exhaustion
+is reported as skipped and does not stop dispatch. Fatal worker errors, unexpected
+exits, protocol errors, and startup failures cancel dispatch and kill/reap remaining
+workers. Completed samples remain; fatal errors may leave partial in-flight writes.
+With `--alisim-log`, each worker writes a separate fragment created with
+`create_new`; the parent merges fragments after workers stop, including on fatal
+errors. Successful merges remove fragments, and pre-existing files are preserved.
+Log order depends on worker assignment; sample-file contents do not.
 
 Each sample gets a deterministic seed derived from `(master_seed, sample_id)`
-and a separate AliSim seed. Future workers should receive explicit, disjoint sample
-ID ranges so scheduling does not affect the data. Pin compiler/library versions
+and a separate AliSim seed. `--seed` is optional: the coordinator resolves a
+random seed once, then forwards it explicitly to every worker (replacing any
+original seed argument). Workers cannot start without an explicit master seed.
+Workers receive explicit, disjoint sample IDs so
+scheduling does not affect the data. Pin compiler/library versions
 for byte reproducibility; AliSim's random distributions and floating-point
-results need not match across platforms. The Rust tree RNG uses xoshiro256** with SplitMix64 initialization, rejection
-sampling for unbiased edge choices, and inverse-CDF exponential lengths. Reference
-vectors and quartet/branch-length tests cover this implementation. Tree samples
-therefore differ from the earlier C++/MT19937 prototype for the same seed.
-A production run manifest should record
-all parameters, sample seeds, vendor revisions, and output checksums.
+results need not match across platforms. Tree sampling uses `phylotree::simulation` with a caller-seeded rand 0.8 StdRng.
+SplitMix64 still derives independent sample/MSA seeds. Tree samples differ from
+the previous PF-only xoshiro sampler and from Python for the same seed. Topology
+frequencies, branch moments, stopping rules and cross-language ensemble
+comparisons cover the new implementation.
+`simulation_summary.json` records the master seed and its source, resolved CLI
+arguments, executable/version/profile, replay command, requested/completed/written
+counts, duplicate failure count/percentage, and monotonic wall time. It is written
+before simulations and replaced atomically at completion or handled failure.
+Only the parent writes this file. The timer includes setup, simulation, final
+output I/O, worker startup/shutdown and log merging; final summary serialization
+and the terminal completion message are excluded. Duplicate percentage uses
+requested samples as its denominator; fatal-run counts cover acknowledged results.
+
+Replay commands quote Bash arguments, spell out numeric defaults and effective
+topology/branch priors, restore the working directory, and use a fresh temporary
+output/log destination. Reproduction requires the same build and unchanged external
+inputs. Abrupt exits can leave `status: running` with null result/timing
+fields; the seed/command are still recoverable. A future production manifest can
+also record vendor revisions, executable and external-input hashes, and sample
+output checksums. Sample-file checks exclude summary metadata and timing.
 
 Keep a future packed writer behind the same sample boundary. `packed_data.py`
 format version 3 stores uncompressed tar shards and a SQLite index containing
