@@ -1,6 +1,6 @@
 use std::env;
 use std::fs;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
@@ -82,22 +82,44 @@ fn main() {
             script.push_str(&format!("ADDLIB \"{archive}\"\n"));
         }
         script.push_str("SAVE\nEND\n");
-        let mut child = Command::new(env::var_os("AR").unwrap_or_else(|| "ar".into()))
-            .arg("-M")
+        let mut tool = Command::new(env::var_os("AR").unwrap_or_else(|| "ar".into()));
+        // GNU ar echoes MRI quote characters without a newline. Keep its output
+        // away from stdout so it cannot prefix and invalidate a Cargo directive.
+        tool.arg("-M")
             .stdin(Stdio::piped())
-            .spawn()
-            .expect("could not launch ar");
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        let mut child = tool.spawn().expect("could not launch ar");
         child
             .stdin
             .take()
             .unwrap()
             .write_all(script.as_bytes())
             .unwrap();
+        let output = child.wait_with_output().expect("could not wait for ar");
         assert!(
-            child.wait().unwrap().success(),
-            "could not bundle native archives"
+            output.status.success() && bundle.is_file(),
+            "{tool:?} did not produce {} (status {}):\n{}\n{}\nMRI script:\n{script}",
+            bundle.display(),
+            output.status,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr),
         );
     }
+
+    // Some archivers can report success without producing the requested output.
+    // Fail here with the actual path rather than later in rustc's library search.
+    let mut archive = fs::File::open(&bundle)
+        .unwrap_or_else(|error| panic!("could not open {}: {error}", bundle.display()));
+    let mut magic = [0; 8];
+    archive
+        .read_exact(&mut magic)
+        .unwrap_or_else(|error| panic!("could not read {}: {error}", bundle.display()));
+    assert!(
+        &magic == b"!<arch>\n" && archive.metadata().unwrap().len() > 8,
+        "{} is not a nonempty static archive",
+        bundle.display()
+    );
 
     println!("cargo:rustc-link-search=native={}", out.display());
     println!("cargo:rustc-link-lib=static=pf_alisim");
