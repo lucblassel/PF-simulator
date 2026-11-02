@@ -149,6 +149,8 @@ pub(crate) fn run(
             let mut command = Command::new(&executable);
             command
                 .args(&arguments)
+                .arg("--worker-id")
+                .arg(id.to_string())
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped());
             // Native errors stay visible; normal AliSim output is redirected.

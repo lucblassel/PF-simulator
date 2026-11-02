@@ -7,7 +7,7 @@ sampling, sequence simulation, and dataset storage:
 CLI / sample configuration / deterministic per-sample seeds
     -> tree prior -> Tree (edges, labels, lengths)
     -> AliSim adapter -> tip alignment
-    -> dataset writer -> matched Newick + FASTA files
+    -> dataset writer -> matched files or worker-owned tar shards + SQLite
 ```
 
 The implementation keeps the tree representation independent of vendor types.
@@ -18,6 +18,34 @@ and `src/main.rs` controls sample IDs and file output. C++ is isolated in
 `native/alisim_bridge.cpp`; vendor headers never enter the Rust application. The
 AliSim adapter accepts numeric edges and lengths, builds native IQ-TREE nodes, and
 returns numeric tip rows. Newick is serialized only for accepted output trees.
+
+## Packed storage
+
+With `--output-format packed`, each process owns a `src/packed.rs` writer,
+its SQLite connection and its tar shards. All tar files share `shards/`, with
+worker-prefixed filenames such as `worker-000-shard-000000.tar`; there are no
+per-worker directories. Temporary worker indices use the same prefix and are
+removed after merging. Only accepted trees and full MSAs
+are serialized, without intermediate files or payload transfer to the coordinator.
+Archive member stems also include the worker ID. `--file-prefix` adds a batch
+prefix to sample and shard filenames, so independently generated archives can
+be extracted into the same tree/sequence directories when prefixes are unique.
+Index sample names remain worker-independent; member names and byte offsets
+record the actual physical locations. The merger ignores prefixes when checking
+simulation policies because naming does not affect the sampling prior.
+Byte-size rotation includes headers, padding and end markers; pairs are never
+split. Open shards and indices carry `.partial` suffixes until finalized.
+
+After worker shutdown, the coordinator streams local index rows into one dense,
+candidate-ordered root index and removes the redundant local indices. Sample
+metadata is an optional SQLite extension to PFceiver's version-3 pair schema;
+legacy `PackedPairs` readers continue to return tree/MSA bytes. Failed runs do
+not publish a successful summary and can retain partial files for diagnosis.
+
+`scripts/merge_packed.py` combines completed batch indices under a common root.
+It namespaces samples by batch identity, preserves summaries, validates payload
+bounds and records relative shard paths. Tar files and offsets remain unchanged.
+Batch IDs do not affect RNG seeds; cluster jobs must use independent seeds.
 
 ## Rust and the FFI boundary
 
@@ -45,11 +73,11 @@ assembles these argument strings before creating its `argv` pointers, keeping
 them valid through simulation. Each call resets AliSim's defaults through its
 parser, including indel settings. Gapped alignments are retained without trimming;
 the requested length refers to the root sequence, rather than final MSA width.
-After accepting an MSA, the Rust writer saves aligned bytes to
-`sequences/sample_000000.fa` and optional gap-free bytes to
-`unaligned_sequences/sample_000000.fa`. The aligned and gap-free directories
-therefore have identical filenames, paired by stem with `trees/`. The gap-free
-directory is created only when AliSim actually generates a gap-free file.
+After accepting an MSA, directory output writes the full alignment to
+`msa_untrimmed/sample_000000.fa` and metadata to `metadata/sample_000000.json`.
+Optional `msa_trimmed/` and `unaligned/` exports share the same filenames and
+pair by stem with `trees/`. Selection uses tip rows even when ancestors are
+exported. Unaligned exports remove gaps from the full alignment.
 
 `cargo build` invokes CMake through `build.rs`, discovers IQ-TREE's transitive
 static archives, and bundles them with the bridge for static linking into the

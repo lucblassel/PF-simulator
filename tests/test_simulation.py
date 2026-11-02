@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import math
+from contextlib import closing
+import sqlite3
+import tarfile
 import json
 import os
 import time
@@ -86,7 +89,240 @@ def tree_paths(path: Path) -> dict[str, dict[int, float]]:
     return paths
 
 
+def packed_snapshot(root: Path) -> dict[str, tuple[bytes, bytes, dict]]:
+    """Independently check tar headers and direct-offset payloads, including metadata."""
+    snapshot = {}
+    members = {}
+    for path in root.rglob("*.tar"):
+        with tarfile.open(path) as archive:
+            assert path.stat().st_size % 512 == 0
+            with path.open("rb") as stream:
+                stream.seek(-1024, 2)
+                assert stream.read() == b"\0" * 1024
+            entries = {}
+            for member in archive:
+                assert member.isfile()
+                entries[member.name] = (member.offset_data, member.size, archive.extractfile(member).read())
+            members[path.relative_to(root).as_posix()] = entries
+    assert not list(root.rglob("*.partial"))
+    with closing(sqlite3.connect(root / "index.sqlite3")) as db:
+        assert db.execute("PRAGMA user_version").fetchone()[0] == 3
+        rows = list(db.execute("SELECT * FROM pairs ORDER BY id"))
+        assert [row[0] for row in rows] == list(range(len(rows)))
+        for _, name, shard, tree_name, tree_offset, tree_size, sequence_name, sequence_offset, sequence_size in rows:
+            with (root / shard).open("rb") as handle:
+                handle.seek(tree_offset)
+                tree = handle.read(tree_size)
+                handle.seek(sequence_offset)
+                sequence = handle.read(sequence_size)
+            assert members[shard].pop(tree_name) == (tree_offset, tree_size, tree)
+            assert members[shard].pop(sequence_name) == (sequence_offset, sequence_size, sequence)
+            candidate, metadata = db.execute("SELECT candidate_id, metadata_json FROM sample_metadata WHERE name=?", (name,)).fetchone()
+            metadata = json.loads(metadata)
+            worker = re.search(r"worker-(\d+)-shard-\d+\.tar$", Path(shard).name).group(1)
+            prefix = metadata["sample"].removesuffix(f"sample_{candidate:06}")
+            assert tree_name == f"trees/{prefix}worker-{worker}-sample_{candidate:06}.nwk"
+            assert sequence_name == f"sequences/{prefix}worker-{worker}-sample_{candidate:06}.fa"
+            assert candidate == metadata["candidate_id"]
+            snapshot[name] = (tree, sequence, metadata)
+        assert all(not entries for entries in members.values())
+    return snapshot
+
+
 class SimulationTests(unittest.TestCase):
+    def test_packed_outputs_offsets_rotation_and_worker_determinism(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            options = ("--preset", "python", "--ancestral", "--samples", "6", "--tips", "8",
+                       "--length", "500", "--seed", "42", "--indel", "0.002,0.002",
+                       "--indel-size", "POW{1.7/100},POW{1.7/100}", "--require-unique-window",
+                       "--max-attempts", "2", "--file-prefix", "batch.001")
+            files = root / "files"
+            run(files, *options)
+            expected = {path.stem: ((files / "trees" / f"{path.stem}.nwk").read_bytes(), path.read_bytes(),
+                                   json.loads((files / "metadata" / f"{path.stem}.json").read_text()))
+                        for path in (files / "msa_untrimmed").glob("*.fa")}
+            self.assertTrue(expected)
+            for jobs, target in ((1, 1024), (3, 1024), (3, 32768)):
+                output = root / f"{jobs}-{target}"
+                run(output, *options, "--jobs", str(jobs), "--output-format", "packed", "--shard-size-bytes", str(target))
+                self.assertEqual(packed_snapshot(output), expected)
+                for name in ("trees", "msa_untrimmed", "metadata", "unaligned", "msa_trimmed"):
+                    self.assertFalse((output / name).exists())
+                shards = list(output.rglob("*.tar"))
+                if target == 1024:
+                    self.assertEqual(len(shards), len(expected))  # Oversize pairs each get their own shard.
+                else:
+                    self.assertTrue(all(path.stat().st_size <= target for path in shards))
+                with closing(sqlite3.connect(output / "index.sqlite3")) as db:
+                    paths = [row[0] for row in db.execute("SELECT DISTINCT shard FROM pairs")]
+                    matches = [re.fullmatch(r"shards/batch\.001-worker-(\d{3,})-shard-\d{6,}\.tar", path) for path in paths]
+                    self.assertTrue(all(matches))
+                    owners = {match.group(1) for match in matches}
+                    self.assertLessEqual(len(owners), jobs)
+                self.assertEqual({path.name for path in output.iterdir()}, {"shards", "index.sqlite3", "simulation_summary.json"})
+                self.assertTrue(all(path.parent == output / "shards" for path in shards))
+                self.assertTrue(all(path.is_file() and path.suffix == ".tar" for path in (output / "shards").iterdir()))
+                self.assertFalse((output / "workers").exists())
+                summary = json.loads((output / "simulation_summary.json").read_text())
+                self.assertEqual(summary["output_layout"]["shard_size_bytes"], target)
+                self.assertEqual(summary["file_prefix"], "batch.001")
+                self.assertIn("--file-prefix=batch.001", summary["resolved_arguments"])
+                command = summary["reproduce_command"] + ' && printf "\nREPLAY=%s\n" "$replay_dir"'
+                result = subprocess.run(["bash", "-c", command], capture_output=True, text=True, timeout=30)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                replay = Path(re.search(r"^REPLAY=(.+)$", result.stdout, re.MULTILINE).group(1))
+                try:
+                    self.assertEqual(packed_snapshot(replay / "data"), expected)
+                finally:
+                    import shutil
+                    shutil.rmtree(replay)
+
+    def test_packed_prefixes_extract_and_merge_without_collisions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            extracted = root / "extracted"
+            seen_members = set()
+            seen_shards = set()
+            expected = {}
+            sources = []
+            for batch, prefix, seed in (("a", "batch-a", "1"), ("b", "b" * 40, "2")):
+                output = root / "batches" / batch
+                sources.append(output)
+                run(output, "--output-format", "packed", "--samples", "4", "--jobs", "3", "--tips", "6",
+                    "--length", "100", "--allow-duplicate-sequences", "--ancestral", "--preset", "python",
+                    "--seed", seed, "--batch-id", batch, "--file-prefix", prefix, "--shard-size-bytes", "1024")
+                snapshot = packed_snapshot(output)
+                self.assertEqual(len(snapshot), 4)
+                expected.update({f"{batch}/{name}": row for name, row in snapshot.items()})
+                for shard in sorted((output / "shards").glob("*.tar")):
+                    self.assertNotIn(shard.name, seen_shards)
+                    self.assertTrue(shard.name.startswith(f"{prefix}-worker-"))
+                    seen_shards.add(shard.name)
+                    with tarfile.open(shard) as archive:
+                        for member in archive.getmembers():
+                            self.assertNotIn(member.name, seen_members)
+                            seen_members.add(member.name)
+                        if hasattr(tarfile, "data_filter"):
+                            archive.extractall(extracted, filter="data")
+                        else:
+                            archive.extractall(extracted)
+                with closing(sqlite3.connect(output / "index.sqlite3")) as db:
+                    for name, tree_name, sequence_name in db.execute("SELECT name, tree_name, sequence_name FROM pairs"):
+                        tree, sequence, _ = snapshot[name]
+                        self.assertEqual((extracted / tree_name).read_bytes(), tree)
+                        self.assertEqual((extracted / sequence_name).read_bytes(), sequence)
+                        self.assertEqual(Path(tree_name).stem, Path(sequence_name).stem)
+            self.assertEqual(len(seen_members), 16)
+            self.assertEqual({p.relative_to(extracted).as_posix() for p in extracted.rglob("*") if p.is_file()}, seen_members)
+            script = Path(__file__).resolve().parents[1] / "scripts" / "merge_packed.py"
+            result = subprocess.run([sys.executable, str(script), *map(str, sources), "--out", str(root)],
+                                    capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(packed_snapshot(root), expected)
+
+    def test_file_prefix_directory_views_trees_only_and_validation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            options = ("--samples", "2", "--tips", "4", "--seqtype", "DNA", "--model", "JC", "--length", "50",
+                       "--indel", "0.1,0.05", "--indel-size", "GEO{2},GEO{3}", "--allow-duplicate-sequences", "--seed", "42", "--materialize", "all")
+            baseline, prefixed = root / "baseline", root / "prefixed"
+            run(baseline, *options)
+            run(prefixed, *options, "--file-prefix", "batch.x")
+            for kind in ("trees", "msa_untrimmed", "msa_trimmed", "unaligned"):
+                for path in (baseline / kind).iterdir():
+                    self.assertEqual(path.read_bytes(), (prefixed / kind / f"batch.x-{path.name}").read_bytes())
+            for path in (prefixed / "metadata").glob("*.json"):
+                metadata = json.loads(path.read_text())
+                self.assertEqual(path.stem, metadata["sample"])
+                self.assertTrue(path.name.startswith("batch.x-sample_"))
+            trees = root / "trees"
+            run(trees, "--trees-only", "--samples", "1", "--file-prefix", "trees", "--seed", "1")
+            self.assertTrue((trees / "trees" / "trees-sample_000000.nwk").is_file())
+            for i, invalid in enumerate(("", "../escape", "a/b", "a\\b", "a b", "a" * 41)):
+                output = root / f"invalid{i}"
+                result = run(output, "--file-prefix", invalid, success=False)
+                self.assertIn("--file-prefix", result.stderr)
+                self.assertFalse(output.exists())
+
+    def test_packed_quota_empty_failures_and_validation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            options = ("--output-format", "packed", "--samples", "4", "--tips", "4",
+                       "--length", "2", "--seqtype", "DNA", "--model", "JC", "--branch-mean", "0.5",
+                       "--seed", "1", "--max-attempts", "1")
+            snapshots = []
+            for jobs in (1, 3):
+                output = root / f"quota{jobs}"
+                run(output, *options, "--ensure-samples", "--jobs", str(jobs))
+                snapshots.append(packed_snapshot(output))
+                self.assertEqual(len(snapshots[-1]), 4)
+                self.assertNotIn("sample_000000", snapshots[-1])
+            self.assertEqual(*snapshots)
+            empty = root / "empty"
+            run(empty, "--output-format", "packed", "--samples", "3", "--jobs", "2", "--tips", "5",
+                "--length", "1", "--seqtype", "DNA", "--model", "JC", "--max-attempts", "1", "--seed", "1")
+            self.assertEqual(packed_snapshot(empty), {})
+            fatal = root / "fatal"
+            run(fatal, "--output-format", "packed", "--jobs", "2", "--samples", "3", "--model", "INVALID_MODEL", success=False)
+            self.assertFalse((fatal / "index.sqlite3").exists())
+            for flag in ("--trees-only", "--materialize=all"):
+                out = root / flag.replace("=", "_")
+                result = run(out, "--output-format", "packed", flag, success=False)
+                self.assertIn("one full MSA/tree pair", result.stderr)
+                self.assertFalse(out.exists())
+
+    def test_packed_batch_merge_without_repacking(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            options = ("--output-format", "packed", "--samples", "3", "--jobs", "2", "--tips", "5",
+                       "--length", "100", "--allow-duplicate-sequences")
+            batches = []
+            expected = {}
+            for batch, seed in (("a", "1"), ("b", "2")):
+                output = root / "batches" / batch
+                run(output, *options, "--seed", seed, "--batch-id", batch)
+                batches.append(output)
+                expected.update({f"{batch}/{name}": row for name, row in packed_snapshot(output).items()})
+            original = {path: path.read_bytes() for path in root.rglob("*.tar")}
+            script = Path(__file__).resolve().parents[1] / "scripts" / "merge_packed.py"
+            result = subprocess.run([sys.executable, str(script), *map(str, batches), "--out", str(root)],
+                                    capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(packed_snapshot(root), expected)
+            self.assertEqual({path: path.read_bytes() for path in root.rglob("*.tar")}, original)
+            with closing(sqlite3.connect(root / "index.sqlite3")) as db:
+                self.assertEqual(db.execute("SELECT COUNT(*) FROM batches").fetchone()[0], 2)
+            duplicate = root / "batches" / "duplicate"
+            run(duplicate, *options, "--seed", "3", "--batch-id", "a")
+            result = subprocess.run([sys.executable, str(script), str(batches[0]), str(duplicate), "--out", str(root / "batches")],
+                                    capture_output=True, text=True, timeout=30)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Repeated batch identity", result.stderr)
+            self.assertFalse((root / "batches" / "index.sqlite3").exists())
+            summary_path = batches[1] / "simulation_summary.json"
+            original_summary = summary_path.read_text()
+            incomplete = json.loads(original_summary)
+            incomplete["status"] = "running"
+            summary_path.write_text(json.dumps(incomplete))
+            result = subprocess.run([sys.executable, str(script), *map(str, batches), "--out", str(root / "batches")],
+                                    capture_output=True, text=True, timeout=30)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Not a completed packed simulation", result.stderr)
+            summary_path.write_text(original_summary)
+            changed = root / "batches" / "changed"
+            run(changed, *options, "--seed", "4", "--batch-id", "changed", "--gamma", "G8")
+            command = [sys.executable, str(script), str(batches[0]), str(changed), "--out", str(root / "batches")]
+            result = subprocess.run(command, capture_output=True, text=True, timeout=30)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Simulation policies differ", result.stderr)
+            self.assertFalse((root / "batches" / "index.sqlite3").exists())
+            result = subprocess.run([*command, "--allow-mixed-configs"], capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            with closing(sqlite3.connect(root / "batches" / "index.sqlite3")) as db:
+                self.assertEqual(db.execute("SELECT COUNT(*) FROM pairs").fetchone()[0], 6)
+
+
     def test_ancestral_exports_map_to_tree_and_preserve_worker_determinism(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -539,6 +775,8 @@ class SimulationTests(unittest.TestCase):
         self.assertNotIn("--small-event-mean", short)
         self.assertNotIn("--gamma-shape", short)
         self.assertIn("--small-event-mean", detailed)
+        self.assertIn("--output-format", detailed)
+        self.assertIn("--shard-size-bytes", detailed)
         self.assertIn("--gamma-shape", detailed)
         self.assertIn("--python-bd", detailed)
         self.assertIn("--preset python", detailed)

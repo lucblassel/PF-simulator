@@ -227,10 +227,70 @@ flag remains accepted but conflicts with requesting an unaligned export.
 
 A training loader can reproduce these views from the full MSA and metadata;
 materializing them is optional. All requested sample files have the same stem.
-For now metadata is a JSON sidecar per sample; a future packed format should embed
-it in each sample record to avoid millions of extra filesystem entries. The
-current `packed_data.py` tree/sequence format does **not** yet preserve these
-sidecars, so retain them separately until that format is extended.
+Directory output stores metadata as JSON sidecars. Direct packed output embeds
+it in SQLite instead. Post-packing directories with PFceiver's existing utility
+still omits these sidecars; retain them separately when using that utility.
+
+### Direct packed output
+
+```bash
+pf-sim --out dataset/batches/job-000 --output-format packed \
+  --preset python --samples 10000 --jobs 8 --seed 42 \
+  --batch-id job-000 --file-prefix job-000
+```
+
+Workers write uncompressed tar files into one `shards/` directory, named
+`worker-000-shard-000000.tar`, `worker-001-shard-000000.tar`, etc. There are no
+per-worker directories. The coordinator creates the root `index.sqlite3` after
+all workers finish and removes their temporary indices.
+Tar members include their writer ID and have matching stems under `trees/`
+and `sequences/`. Optional `--file-prefix job-000` adds `job-000-` to shard
+and member filenames, for example:
+
+```text
+shards/job-000-worker-003-shard-000000.tar
+  trees/job-000-worker-003-sample_000042.nwk
+  sequences/job-000-worker-003-sample_000042.fa
+```
+
+Use a **unique file prefix per batch** to copy all archives into one directory
+or extract them into a shared `trees/` and `sequences/` filetree without
+collisions. `--batch-id` namespaces index records only; it does not prefix files.
+Prefixes accept 1–40 ASCII letters, digits, dots, underscores or hyphens.
+In directory mode the prefix applies to sample files and metadata sidecars,
+e.g. `msa_untrimmed/job-000-sample_000042.fa`. Index and run-summary filenames
+stay fixed. Naming does not affect sampling or RNGs; logical sample names remain
+worker-independent, while `pairs.tree_name` and `sequence_name` record physical
+archive paths. Saved replay commands preserve the prefix.
+
+Only one full MSA and its tree are stored per example; `--ancestral` includes
+internal sequences in that MSA. `--materialize` and `--trees-only` require file
+output. The default `--output-format files` remains available.
+
+`--shard-size-bytes` defaults to 1 GiB, including tar headers, padding and end
+markers. Pairs stay together; an oversized pair gets its own shard. The index
+uses PFceiver's version-3 `pairs` schema and is readable by `PackedPairs`.
+Window coordinates and provenance are stored in
+`sample_metadata(name, candidate_id, metadata_json)`; `dataset_metadata` records
+the metadata extension version. The run summary remains at the dataset root.
+No per-example files or extra FASTA views are written.
+
+For cluster jobs, use separate output directories, distinct seeds and unique
+batch IDs. Without explicit values, seeds are generated and batch IDs default
+to `seed-<seed>`. Batch IDs name examples during merging; they do not change RNGs.
+Merge completed batches without copying or repacking their tar files:
+
+```bash
+python3 scripts/merge_packed.py dataset/batches/job-* --out dataset
+```
+
+Inputs must be below `dataset`; keep the whole directory tree when relocating
+it. The merger assigns dense IDs and names examples as `<batch-id>/<sample>`.
+It preserves batch summaries in `batches` and maps examples in `sample_batches`.
+Repeated identities, incomplete runs and conflicting policies are rejected;
+`--allow-mixed-configs` permits an intentional mixture. Existing indices are
+never overwritten. Sample contents are reproducible across worker counts;
+worker assignment and shard bytes/order can vary.
 
 To pack raw, trimmed or unaligned sequences with the existing packer, select
 `--sequence-dir msa_untrimmed`, `msa_trimmed` or `unaligned`, respectively.
@@ -268,8 +328,8 @@ Tip-only output is the default. `--ancestral` additionally exports simulated
 internal rows in full, selected and gap-free outputs. Their `I_<id>` labels match
 the internal labels in the saved tree; metadata lists the ancestral IDs. All
 acceptance checks remain tip-only. The native numeric transport includes ancestors
-without serializing them through FASTA first. No tar/SQLite shards are written
-directly. See [architecture](docs/architecture.md).
+without serializing them through FASTA first. Packed mode serializes each
+accepted full MSA once into a tar member. See [architecture](docs/architecture.md).
 
 Application code is in `src/main.rs` (CLI/output), `src/tree.rs` (trees), and
 `src/alignment.rs` (safe AliSim API). `src/workers.rs` coordinates process workers.
@@ -323,4 +383,4 @@ numeric output in its timings. It excludes final filesystem writes.
     - [x] Rescaled birth-death branches
     - [x] rescaling to empirical diameters
 - [x] Implement parallel simulation
-- [ ] Simulate directly into new packed and sharded dataset format
+- [x] Simulate directly into the packed and sharded dataset format

@@ -15,6 +15,7 @@ use pf_simulator::tree_simulation::{TreeArgs, TreeSimulation};
 use pf_simulator::selection::{self, Rejection, TipChecks, WindowPolicy};
 use pf_simulator::site_rates::GammaMode;
 
+mod packed;
 mod run_summary;
 mod workers;
 use workers::{Counts, Outcome};
@@ -32,6 +33,33 @@ struct Config {
     /// Output directory (must not already exist).
     #[arg(long = "out", default_value = "simulated_data", value_name = "DIR")]
     output: PathBuf,
+
+    /// Store examples as individual files or worker-owned tar shards plus SQLite.
+    #[arg(long, value_enum, default_value_t = OutputFormat::Files, hide_short_help = true, help_heading = "Packed output")]
+    output_format: OutputFormat,
+
+    /// Target tar size in bytes (1 GiB); pairs stay together and may exceed it.
+    #[arg(long, default_value_t = 1_073_741_824, value_parser = clap::value_parser!(u64).range(1024..), hide_short_help = true, help_heading = "Packed output")]
+    shard_size_bytes: u64,
+
+    /// Optional identity for merging independent batches (does not change the seed).
+    #[arg(long, hide_short_help = true, help_heading = "Packed output")]
+    batch_id: Option<String>,
+
+    /// Prefix sample and shard filenames with PREFIX- (index/summary names stay fixed).
+    ///
+    /// Use a different prefix per cluster batch for collision-free tar extraction.
+    /// Accepts 1–40 ASCII letters, digits, dots, underscores or hyphens.
+    #[arg(
+        long,
+        value_name = "PREFIX",
+        hide_short_help = true,
+        help_heading = "Output and retries"
+    )]
+    file_prefix: Option<String>,
+
+    #[arg(long, hide = true)]
+    worker_id: Option<u16>,
 
     /// Number of simulations to attempt.
     ///
@@ -53,9 +81,10 @@ struct Config {
 
     /// Number of worker processes (1 runs directly in this process).
     ///
-    /// Workers run independent AliSim instances and write separate sample files.
-    /// Sample IDs and seeds are identical for every job count. Fatal errors stop
-    /// the batch; already completed samples remain. Requested jobs are capped
+    /// Workers run independent AliSim instances and own their output files/shards.
+    /// Sample IDs and seeds are identical for every job count; packed shard
+    /// assignment may vary. Fatal errors stop the batch; already completed
+    /// samples remain. Requested jobs are capped
     /// at the number of samples. Log fragments are merged after workers stop.
     #[arg(short = 'j', long, default_value_t = 1, value_parser = clap::value_parser!(u16).range(1..))]
     jobs: u16,
@@ -119,6 +148,12 @@ struct Config {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+enum OutputFormat {
+    Files,
+    Packed,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
 enum Materialize {
     Trimmed,
     Unaligned,
@@ -150,6 +185,13 @@ struct SelectionArgs {
 }
 
 impl Config {
+    fn file_prefix(&self) -> String {
+        self.file_prefix
+            .as_ref()
+            .map(|prefix| format!("{prefix}-"))
+            .unwrap_or_default()
+    }
+
     fn materializes(&self, kind: Materialize) -> bool {
         self.materialize.contains(&Materialize::All) || self.materialize.contains(&kind)
     }
@@ -270,6 +312,7 @@ fn simulate_sample(
     tree_simulation: &TreeSimulation,
     alignment: &AlignmentConfig,
     sample: u64,
+    packed: &mut Option<packed::PackedWriter>,
     mut on_attempt: impl FnMut(u32, u32),
 ) -> Result<(), SimulationError> {
     let seed = sample_seed(
@@ -277,7 +320,7 @@ fn simulate_sample(
         sample,
     );
     let tree = tree_simulation.generate(config.tips as usize, seed)?;
-    let name = format!("sample_{sample:06}");
+    let name = format!("{}sample_{sample:06}", config.file_prefix());
     let tree_file = config.output.join("trees").join(format!("{name}.nwk"));
     if config.trees_only {
         fs::write(
@@ -353,30 +396,9 @@ fn simulate_sample(
             }
         };
         log_attempt(config.alisim_log.as_deref(), "Accepted alignment")?;
-        fs::write(
-            tree_file,
-            if alignment.ancestral {
-                tree.newick_with_internal_names()?
-            } else {
-                tree.newick()
-            },
-        )?;
-        fs::write(sequences.join(format!("{name}.fa")), data.to_fasta(false))?;
-        if config.materializes(Materialize::Unaligned) {
-            fs::write(
-                config.output.join("unaligned").join(format!("{name}.fa")),
-                data.to_fasta(true),
-            )?;
-        }
-        if config.materializes(Materialize::Trimmed) {
-            fs::write(
-                config.output.join("msa_trimmed").join(format!("{name}.fa")),
-                data.window_fasta(window.start, window.end),
-            )?;
-        }
         let checks = config.checks();
         let metadata = serde_json::json!({
-            "schema_version": 1, "sample": name, "candidate_id": sample,
+            "schema_version": 1, "sample": name, "candidate_id": sample, "batch_id": config.batch_id,
             "master_seed": config.seed.unwrap(), "tree_seed": seed,
             "attempt_index": attempt, "attempt_number": attempt + 1,
             "alisim_seed": alignment_seed, "model": attempt_alignment.model,
@@ -394,10 +416,46 @@ fn simulate_sample(
             "ancestral": alignment.ancestral,
             "ancestral_names": data.names.iter().filter(|name| !name.starts_with('T')).collect::<Vec<_>>(),
         });
-        fs::write(
-            config.output.join("metadata").join(format!("{name}.json")),
-            serde_json::to_vec_pretty(&metadata).map_err(std::io::Error::other)?,
-        )?;
+        if let Some(writer) = packed {
+            let newick = if alignment.ancestral {
+                tree.newick_with_internal_names()?
+            } else {
+                tree.newick()
+            };
+            writer.write(
+                sample,
+                &name,
+                newick.as_bytes(),
+                &data.to_fasta(false),
+                &metadata,
+            )?;
+        } else {
+            fs::write(
+                tree_file,
+                if alignment.ancestral {
+                    tree.newick_with_internal_names()?
+                } else {
+                    tree.newick()
+                },
+            )?;
+            fs::write(sequences.join(format!("{name}.fa")), data.to_fasta(false))?;
+            if config.materializes(Materialize::Unaligned) {
+                fs::write(
+                    config.output.join("unaligned").join(format!("{name}.fa")),
+                    data.to_fasta(true),
+                )?;
+            }
+            if config.materializes(Materialize::Trimmed) {
+                fs::write(
+                    config.output.join("msa_trimmed").join(format!("{name}.fa")),
+                    data.window_fasta(window.start, window.end),
+                )?;
+            }
+            fs::write(
+                config.output.join("metadata").join(format!("{name}.json")),
+                serde_json::to_vec_pretty(&metadata).map_err(std::io::Error::other)?,
+            )?;
+        }
         return Ok(());
     }
     Err(if last_rejection == Rejection::Gapped {
@@ -419,9 +477,10 @@ fn process_sample(
     trees: &TreeSimulation,
     alignment: &AlignmentConfig,
     sample: u64,
+    packed: &mut Option<packed::PackedWriter>,
     on_attempt: impl FnMut(u32, u32),
 ) -> Result<Outcome, SimulationError> {
-    match simulate_sample(config, trees, alignment, sample, on_attempt) {
+    match simulate_sample(config, trees, alignment, sample, packed, on_attempt) {
         Ok(()) => Ok(Outcome::Written),
         Err(error @ SimulationError::DuplicateSequences { .. }) => {
             log_attempt(
@@ -450,9 +509,12 @@ fn run_worker(
     trees: &TreeSimulation,
     alignment: &AlignmentConfig,
 ) -> Result<(), Box<dyn Error>> {
-    if !config.output.join("trees").is_dir() || !config.output.join("msa_untrimmed").is_dir() {
+    if config.output_format == OutputFormat::Files
+        && (!config.output.join("trees").is_dir() || !config.output.join("msa_untrimmed").is_dir())
+    {
         return Err("Worker output directories must be created by the coordinator".into());
     }
+    let mut packed = new_packed_writer(config, config.worker_id.ok_or("Missing worker identity")?)?;
     let stdin = std::io::stdin();
     let stdout = std::io::stdout();
     let mut output = stdout.lock();
@@ -461,7 +523,7 @@ fn run_worker(
         if !config.ensure_samples && sample >= config.samples {
             return Err("Worker sample ID is outside this batch".into());
         }
-        let outcome = process_sample(config, trees, alignment, sample, |_, _| {})?;
+        let outcome = process_sample(config, trees, alignment, sample, &mut packed, |_, _| {})?;
         let status = match outcome {
             Outcome::Written => "written",
             Outcome::Skipped(reason) => reason.name(),
@@ -469,7 +531,24 @@ fn run_worker(
         writeln!(output, "{sample}\t{status}")?;
         output.flush()?;
     }
+    if let Some(writer) = packed {
+        writer.finish()?;
+    }
     Ok(())
+}
+
+fn new_packed_writer(config: &Config, id: u16) -> std::io::Result<Option<packed::PackedWriter>> {
+    if config.output_format == OutputFormat::Packed {
+        packed::PackedWriter::new(
+            config.output.join("shards"),
+            config.shard_size_bytes,
+            id,
+            config.file_prefix(),
+        )
+        .map(Some)
+    } else {
+        Ok(None)
+    }
 }
 
 fn run_serial(
@@ -479,20 +558,31 @@ fn run_serial(
     progress: &ProgressBar,
     counts: &mut Counts,
 ) -> Result<(), Box<dyn Error>> {
+    let mut packed = new_packed_writer(config, 0)?;
     let mut next = 0_u64;
     while !counts.finished(config) {
         let sample = next;
         next = next
             .checked_add(1)
             .ok_or("Candidate sample IDs exhausted")?;
-        let outcome = process_sample(config, trees, alignment, sample, |attempt, attempts| {
-            progress.set_message(format!(
-                "sample_{sample:06}, attempt {attempt}/{attempts} ({} failed)",
-                counts.failed
-            ));
-        })?;
+        let outcome = process_sample(
+            config,
+            trees,
+            alignment,
+            sample,
+            &mut packed,
+            |attempt, attempts| {
+                progress.set_message(format!(
+                    "sample_{sample:06}, attempt {attempt}/{attempts} ({} failed)",
+                    counts.failed
+                ));
+            },
+        )?;
         counts.record(outcome);
         counts.update_progress(config, progress);
+    }
+    if let Some(writer) = packed {
+        writer.finish()?;
     }
     Ok(())
 }
@@ -505,7 +595,38 @@ fn run() -> Result<(), Box<dyn Error>> {
     if config.worker && !provided_seed {
         return Err("Worker requires an explicit seed from its coordinator".into());
     }
+    // Bound generated basenames so each tar member fits one ustar header,
+    // including the largest worker/candidate IDs and the fixed directory name.
+    if let Some(prefix) = &config.file_prefix
+        && (prefix.is_empty()
+            || prefix.len() > 40
+            || !prefix
+                .bytes()
+                .all(|c| c.is_ascii_alphanumeric() || b"._-".contains(&c)))
+    {
+        return Err(
+            "--file-prefix must contain 1–40 ASCII letters, digits, dots, underscores or hyphens"
+                .into(),
+        );
+    }
     config.seed.get_or_insert_with(rand::random);
+    let default_batch_id = format!("seed-{}", config.seed.unwrap());
+    let batch_id = config.batch_id.get_or_insert(default_batch_id);
+    if batch_id.is_empty()
+        || batch_id.len() > 128
+        || !batch_id
+            .bytes()
+            .all(|c| c.is_ascii_alphanumeric() || b"_-".contains(&c))
+    {
+        return Err(
+            "--batch-id must contain 1–128 ASCII letters, digits, underscores or hyphens".into(),
+        );
+    }
+    if config.output_format == OutputFormat::Packed
+        && (config.trees_only || !config.materialize.is_empty())
+    {
+        return Err("Packed output stores one full MSA/tree pair; --trees-only and --materialize require --output-format files".into());
+    }
     let python = config.tree.python_bd
         || config.tree.preset == pf_simulator::tree_simulation::Preset::Python;
     let gamma =
@@ -566,21 +687,28 @@ fn run() -> Result<(), Box<dyn Error>> {
     }
     let mut counts = Counts::default();
     let result = (|| -> Result<(), Box<dyn Error>> {
-        let trees = config.output.join("trees");
-        let sequences = config.output.join("msa_untrimmed");
-        fs::create_dir(&trees)?;
-        fs::create_dir(&sequences)?;
-        let metadata = config.output.join("metadata");
-        fs::create_dir(&metadata)?;
-        let mut output_directories = vec![trees.clone(), sequences.clone(), metadata];
-        for (kind, name) in [
-            (Materialize::Trimmed, "msa_trimmed"),
-            (Materialize::Unaligned, "unaligned"),
-        ] {
-            if config.materializes(kind) {
-                let directory = config.output.join(name);
-                fs::create_dir(&directory)?;
-                output_directories.push(directory);
+        let mut output_directories = Vec::new();
+        if config.output_format == OutputFormat::Packed {
+            let directory = config.output.join("shards");
+            fs::create_dir(&directory)?;
+            output_directories.push(directory);
+        } else {
+            let trees = config.output.join("trees");
+            let sequences = config.output.join("msa_untrimmed");
+            fs::create_dir(&trees)?;
+            fs::create_dir(&sequences)?;
+            let metadata = config.output.join("metadata");
+            fs::create_dir(&metadata)?;
+            output_directories.extend([trees.clone(), sequences.clone(), metadata]);
+            for (kind, name) in [
+                (Materialize::Trimmed, "msa_trimmed"),
+                (Materialize::Unaligned, "unaligned"),
+            ] {
+                if config.materializes(kind) {
+                    let directory = config.output.join(name);
+                    fs::create_dir(&directory)?;
+                    output_directories.push(directory);
+                }
             }
         }
         if let Some(log) = &config.alisim_log {
@@ -591,10 +719,13 @@ fn run() -> Result<(), Box<dyn Error>> {
             let parent = parent.canonicalize()?;
             if parent == config.output.canonicalize()?
                 && log.file_name().is_some_and(|name| {
-                    name == run_summary::FILE_NAME || name == run_summary::TEMP_FILE_NAME
+                    name == run_summary::FILE_NAME
+                        || name == run_summary::TEMP_FILE_NAME
+                        || name == packed::INDEX
+                        || name == packed::PARTIAL_INDEX
                 })
             {
-                return Err("AliSim log must not use a simulation summary filename".into());
+                return Err("AliSim log must not use a simulation summary filename or packed index filename".into());
             }
             if output_directories
                 .iter()
@@ -622,6 +753,17 @@ fn run() -> Result<(), Box<dyn Error>> {
                 &mut counts,
             )
         };
+        let result = result.and_then(|()| {
+            if config.output_format == OutputFormat::Packed {
+                progress.set_message("Finalizing packed index");
+                packed::merge_workers(
+                    &config.output,
+                    u64::from(config.jobs).min(config.samples),
+                    counts.written,
+                )?;
+            }
+            Ok(())
+        });
         if result.is_ok() {
             progress.finish_and_clear();
         } else {

@@ -75,6 +75,12 @@ fn resolved_arguments(config: &Config) -> io::Result<Vec<OsString>> {
         ("--tips", config.tips.to_string()),
         ("--seed", config.seed.expect("resolved seed").to_string()),
         ("--jobs", config.jobs.to_string()),
+        ("--output-format", value(config.output_format)),
+        ("--shard-size-bytes", config.shard_size_bytes.to_string()),
+        (
+            "--batch-id",
+            config.batch_id.clone().expect("resolved batch identity"),
+        ),
         ("--preset", value(tree.preset)),
         ("--tree-prior", value(topology)),
         ("--branch-prior", value(branches)),
@@ -146,6 +152,9 @@ fn resolved_arguments(config: &Config) -> io::Result<Vec<OsString>> {
         ),
     ] {
         add(name, text);
+    }
+    if let Some(prefix) = &config.file_prefix {
+        add("--file-prefix", prefix.clone());
     }
     if !config.materialize.is_empty() {
         add(
@@ -248,6 +257,15 @@ impl RunSummary {
             "no_unaligned": config.alignment.no_unaligned,
             "ancestral": config.alignment.ancestral,
         });
+        let output_layout = if config.output_format == crate::OutputFormat::Packed {
+            json!({"format": "packed", "format_version": 3, "simulation_metadata_version": 1,
+                "index": "index.sqlite3", "full_msa": format!("tar member sequences/{}worker-<worker>-sample_<candidate>.fa", config.file_prefix()),
+                "sample_metadata": "sample_metadata table", "shards": format!("shards/{}worker-*-shard-*.tar", config.file_prefix()),
+                "shard_size_bytes": config.shard_size_bytes, "batch_id": config.batch_id})
+        } else {
+            json!({"format": "files", "full_msa": "msa_untrimmed", "sample_metadata": "metadata",
+                "trimmed": "msa_trimmed (when materialized)", "unaligned": "unaligned (when materialized)"})
+        };
         let document = json!({
             "schema_version": 1,
             "status": "running",
@@ -262,7 +280,9 @@ impl RunSummary {
             "failed_duplicate_samples": null,
             "failed_window_samples": null,
             "failed_samples_by_last_rejection": null,
-            "output_layout": { "full_msa": "msa_untrimmed", "sample_metadata": "metadata", "trimmed": "msa_trimmed (when materialized)", "unaligned": "unaligned (when materialized)" },
+            "output_layout": output_layout,
+            "batch_id": config.batch_id,
+            "file_prefix": config.file_prefix,
             "failed_duplicate_percentage": null,
             "failed_duplicate_percentage_denominator": if config.ensure_samples { "completed_samples" } else { "requested_samples" },
             "wall_time_seconds": null,
@@ -277,7 +297,7 @@ impl RunSummary {
             "trees_only": config.trees_only,
             "resolved_arguments": arguments.iter().map(|arg| arg.to_string_lossy()).collect::<Vec<_>>(),
             "reproduce_command": command,
-            "reproduction_requirements": "Use the same executable/build and unchanged external inputs (such as custom model or empirical files), if supplied. Sample files are reproducible; timings, summary metadata and parallel log ordering vary.",
+            "reproduction_requirements": "Use the same executable/build and unchanged external inputs (such as custom model or empirical files), if supplied. Logical sample payloads are reproducible; timings, summary metadata, parallel log ordering and packed shard assignment vary.",
             "msa_policy": msa_policy,
             "error": null,
         });
