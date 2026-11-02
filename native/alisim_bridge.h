@@ -30,7 +30,7 @@ int pf_alisim_simulate(const char* tree_file, const pf_tree_edge* edges,
                       size_t edge_count, uint32_t tips, const char* output_prefix,
                       const char* model, const char* sequence_type,
                       int32_t length, int32_t seed,
-                      const char* indel, const char* indel_size, int no_unaligned,
+                      const char* indel, const char* indel_size, int no_unaligned, int ancestral,
                       const char* log_path, int output_mode,
                       pf_alisim_output callback, void* context,
                       char* error, size_t error_capacity);

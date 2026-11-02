@@ -38,7 +38,7 @@ cargo run -- --out indel_data --samples 10 --indel 0.002,0.002 \
 ```
 
 Output must not exist. Each pair is `trees/sample_000000.nwk` and
-`sequences/sample_000000.fa`, with matching `T1`…`Tn` tip IDs. The first tree
+`msa_untrimmed/sample_000000.fa`, with matching `T1`…`Tn` tip IDs. The first tree
 has index zero. `--branch-mean` controls the exponential branch-length mean;
 `-h` shows the common options; `--help` lists all options with details and examples.
 Model and sequence type must agree.
@@ -52,7 +52,9 @@ Every output directory contains `simulation_summary.json`, with:
 - The master `seed`, its source (`provided` or `generated`), resolved CLI options,
   executable/version/build profile, and a Bash `reproduce_command`.
 - Requested, completed, and written sample counts; `failed_duplicate_samples`
-  and `failed_duplicate_percentage` (percentage of requested samples).
+  and `failed_duplicate_percentage` (percentage of requested candidates by default;
+  percentage of completed candidates with `--ensure-samples`). The summary records
+  `sample_count_mode`, `ensure_samples`, and the percentage denominator explicitly.
 - `wall_time_seconds`, measured with a monotonic clock from coordinator startup
   before CLI parsing through generation, retries, output writes, worker shutdown,
   and log merging. Final summary serialization and completion printing are excluded.
@@ -76,13 +78,23 @@ and write their own files; the parent collects progress and failure counts.
 The same options and seed produce identical sample files for every job count.
 Workers each have independent IQ-TREE state; larger job counts also use more RAM.
 See the [parallelism benchmarks](benchmarks/parallelism/REPORT.md) for measured
-whole-run speedups, including output I/O.
+whole-run speedups, including output I/O. The
+[Python reference comparison](benchmarks/python/REPORT.md) measures complete
+no-indel, duplicate-checked runs at 1, 4 and 8 worker/thread budgets, including
+both the original Python threading strategy and a Python process pool. An
+[indel follow-up](benchmarks/python_indels/REPORT.md) measures raw aligned and
+unaligned output with duplicate checks disabled, including ancestral-output
+and tip-only Python references.
+The [full pipeline benchmark](benchmarks/python_pipeline/REPORT.md) additionally
+matches empirical GC, ancestral simulation, tip-window selection and materialized
+full/selected/unaligned output on both sides, with one attempt per tree.
 
 `--preset default` (also used when omitted) selects uniform unrooted topologies
 with exponential branch lengths of mean 0.1. `--preset python` selects the Python
 birth-death pipeline: process-time branches, inherited rate changes, empirical
-diameter scaling, then terminal repair below 0.001. Presets affect tree generation;
-alignment settings remain independent. Numeric parameters such as `--branch-mean`,
+diameter scaling, then terminal repair below 0.001. It also defaults to LG with
+empirical eight-category Gamma (G8) site rates. An explicit `--model` overrides this
+alignment default; `--gamma` overrides the empirical rate mode. Numeric parameters such as `--branch-mean`,
 `--birth-rate`, and `--minimum-terminal` remain configurable. The Python preset
 requires birth-death topology and process-time branches; use the default preset
 with individual tree options to build other pipelines.
@@ -94,6 +106,33 @@ See [tree priors](docs/tree-priors.md)
 and the [distribution comparison](validation/tree_priors/REPORT.md).
 `--trees-only` skips MSA generation.
 
+`--gamma G8` or `--gamma GC` enables empirical site rates with any base model
+(e.g. `--model WAG --gamma G8`). `--gamma none` disables empirical sampling;
+fixed shapes remain available through `--model 'LG+G4{0.5}'`. On **each attempt**,
+a uniformly selected bundled HOGENOM alpha is jittered by Normal(alpha, alpha/10)
+and floored at 0.05, matching `alisim.py`. All 12,408 observations are included
+without filtering or deduplication; no external alpha file or Python is needed.
+This is separate from `--branch-prior gamma`.
+
+**GC can be much slower than G8**, especially on large trees and alignments;
+see the [Gamma benchmark](benchmarks/gamma_costs/REPORT.md). Use `--gamma GC`
+explicitly to match the Python pipeline's continuous site-rate prior. G8 uses
+eight discrete rate categories and changes that prior.
+
+Gamma draws depend only on the master seed, numeric sample ID, and zero-based
+attempt; they reproduce across worker counts. The summary records the empirical
+source/payload SHA-256 hashes, resolved MSA and selection settings, and the exact
+seed derivation. `--alisim-log` additionally records each attempted model and
+engine seed. To reconstruct one alpha (candidate 12, attempt 2):
+
+```bash
+cargo run --example sample_gamma -- --seed 42 --candidate 12 --attempt 2 --count 1
+```
+
+Rust and Python use different RNGs: they sample the same prior, but equal numeric
+seeds do not produce the same draws across languages. See the
+[empirical Gamma comparison](validation/empirical_gamma/REPORT.md).
+
 MSAs must have unique aligned tip sequences by default. `--max-attempts 20`
 sets the maximum number of attempts per fixed tree, including the first attempt.
 Retries use distinct deterministic seeds. If the limit is exhausted, that sample
@@ -104,8 +143,51 @@ if all samples were skipped. `--samples` counts requested simulations, so the
 output can contain fewer pairs and gaps in sample IDs. Later sample IDs and
 seeds are unchanged. Other simulation and I/O errors still stop the run with a
 nonzero exit status. `--allow-duplicate-sequences` accepts the first
-attempt without checking. Duplicate comparisons include gap positions and use
-the full alignment; gap-free outputs can still match when gap placement differs.
+attempt and overrides **all** tip checks. Checks are independent:
+
+- `--require-distinct-gapped[=true|false]`: distinct full aligned tip rows;
+  enabled by default. Use `--require-distinct-gapped=false` to disable it.
+- `--require-distinct-ungapped[=true|false]`: distinct full tip rows after gap
+  removal; disabled by default.
+- `--require-unique-window[=true|false]`: a length-L window containing distinct
+  aligned tip rows; disabled by default. Internal sequences never participate.
+
+Each failed check retries the MSA on the fixed tree, using the same maximum-attempt
+and optional replacement policy. Checks run in gapped, ungapped, window order;
+logs identify the first failed check. The summary separates exhausted samples by
+last rejection (`gapped`, `ungapped`, `window`) and records total failed samples.
+Window failures are recoverable just like full-sequence duplicate failures.
+
+`--window-policy inclusive` searches every valid start, including the last one.
+`--window-policy python` preserves the legacy excluded final start for M > L.
+The default is `python` under the Python preset, otherwise `inclusive`. Both
+accept a unique full window at start zero when M == L, and reject M < L when
+window checking is enabled. No columns are removed before checking.
+
+```sh
+cargo run --release -- --out selected_data --samples 100 --tips 50 \
+  --indel 0.002,0.002 --require-distinct-ungapped --require-unique-window \
+  --materialize trimmed,unaligned
+```
+
+Use `--ensure-samples` to make `--samples` the number of successful outputs instead:
+
+```sh
+cargo run --release -- --out complete_data --samples 100 --ensure-samples --jobs 4
+```
+
+After a tree exhausts `--max-attempts`, a fresh tree and seed are generated until
+exactly the requested number of outputs is written. Only successful outputs
+advance the progress bar. Failed candidates remain counted in the summary and
+logs; `completed_samples` counts successes plus failures and can exceed the target.
+Candidate IDs keep increasing, so output filenames can still have gaps. With a
+fixed seed, outputs are identical across worker counts, without extra speculative
+output files. Other simulation or I/O errors still stop the run.
+
+**Warning:** `--ensure-samples` can significantly increase runtime and may never
+finish if the settings cannot generate duplicate-free outputs. The CLI prints
+this warning when the flag is used. With `--allow-duplicate-sequences` or
+`--trees-only`, every successful candidate already counts toward the target.
 
 AliSim returns numeric sequence rows to Rust through an in-memory adapter.
 Duplicate checking compares those rows directly, including gap positions. Only
@@ -120,19 +202,38 @@ directly to AliSim, which parses and validates them. Rates are relative to
 substitution rates. Omitting `--indel-size` uses AliSim's default size
 distributions; it requires `--indel` when supplied. With indels, `--length`
 sets the root sequence length; the final gapped alignment can be longer and is
-kept in full. Gap-free sequences are saved separately unless you pass
-`--no-unaligned`:
+kept in full. The default output stores one MSA plus per-sample metadata:
 
 ```text
 simulation_summary.json
 trees/sample_000000.nwk
-sequences/sample_000000.fa
-unaligned_sequences/sample_000000.fa
+msa_untrimmed/sample_000000.fa
+metadata/sample_000000.json
 ```
 
-`unaligned_sequences/` is created only when gap-free output is generated.
-To pack gap-free sequences, use `--sequence-dir unaligned_sequences` instead
-of `--sequence-dir sequences` in the packing command below.
+Metadata records the actual model, tree/engine seeds, accepted attempt, earlier
+rejection counts, tip identities, alignment length and selected window. Window
+coordinates are **zero-based, half-open full-alignment column offsets**. If window
+checking is disabled (including `--allow-duplicate-sequences`), the window is an
+explicitly unchecked prefix `[0, min(L, M))`; it may be shorter than L.
+
+`--materialize trimmed` additionally writes `msa_trimmed/sample_000000.fa`.
+`--materialize unaligned` writes `unaligned/sample_000000.fa`, removing gaps from
+**full** rows, not from the selected window. Use `--materialize trimmed,unaligned`
+or `--materialize all` for both. These exports also work without indels and with
+duplicates allowed. They neither change simulation RNGs nor acceptance. Neither
+additional directory is created unless requested. The older `--no-unaligned`
+flag remains accepted but conflicts with requesting an unaligned export.
+
+A training loader can reproduce these views from the full MSA and metadata;
+materializing them is optional. All requested sample files have the same stem.
+For now metadata is a JSON sidecar per sample; a future packed format should embed
+it in each sample record to avoid millions of extra filesystem entries. The
+current `packed_data.py` tree/sequence format does **not** yet preserve these
+sidecars, so retain them separately until that format is extended.
+
+To pack raw, trimmed or unaligned sequences with the existing packer, select
+`--sequence-dir msa_untrimmed`, `msa_trimmed` or `unaligned`, respectively.
 See [AliSim's indel documentation](https://iqtree.github.io/doc/AliSim#insertion-and-deletion-models)
 for distribution syntax.
 
@@ -151,7 +252,7 @@ Pack with the existing PFceiver utility (Python ≥3.12 and tqdm):
 
 ```sh
 python /Users/lucblassel/Work/PFceiver/PFceiver/packed_data.py \
-  example_data packed_data --tree-dir trees --sequence-dir sequences
+  example_data packed_data --tree-dir trees --sequence-dir msa_untrimmed
 ```
 
 The same seed and options reproduce the same sample files with the same
@@ -163,7 +264,11 @@ can leave partial output; use a new output directory when retrying.
 In parallel mode, a fatal error stops dispatch and terminates/reaps all workers;
 already completed outputs remain, and in-flight writes may be incomplete.
 
-This example emits tip sequences only and does not yet write tar/SQLite shards
+Tip-only output is the default. `--ancestral` additionally exports simulated
+internal rows in full, selected and gap-free outputs. Their `I_<id>` labels match
+the internal labels in the saved tree; metadata lists the ancestral IDs. All
+acceptance checks remain tip-only. The native numeric transport includes ancestors
+without serializing them through FASTA first. No tar/SQLite shards are written
 directly. See [architecture](docs/architecture.md).
 
 Application code is in `src/main.rs` (CLI/output), `src/tree.rs` (trees), and
@@ -172,6 +277,23 @@ The C++ bridge is isolated in `native/`;
 `build.rs` and CMake handle its compilation. The CLI uses Clap derive.
 Use `cargo build --release -j 8` for an optimized binary in `target/release/pf-sim`.
 `cargo test` runs Rust unit tests and the end-to-end checks (Python 3 required).
+
+## Distribution validation
+
+The [MSA comparison report](validation/msa_priors/REPORT.md) measures the linked
+engine against independent standalone AliSim 2.4.0 and 2.2.2.6 executables. It also
+compares the current Python preset with the actual legacy Python MSA pipeline,
+including empirical gamma sampling, indels, and downstream window selection.
+That report measured the earlier tree-only preset. The current Python preset
+now defaults to empirical G8; use `--gamma GC` to reproduce the Python pipeline's
+continuous site-rate prior. Indels, ancestral output and window selection require
+explicit options.
+See the report for measured differences, scope, raw metrics, and reproduction steps.
+A [raw Python comparison](validation/python_raw/REPORT.md) separately matches
+empirical Gamma/indel settings and compares `.untrimmed` and unaligned tip
+outputs before duplicate rejection or window selection.
+A [fixed-tree probe](validation/msa_priors/branch_probe/REPORT.md) diagnoses a
+measured unrooted-tree discrepancy in the installed older binary.
 
 ## Bridge performance comparisons
 
@@ -191,14 +313,14 @@ The harness checks sequence equivalence and includes FASTA conversion of accepte
 numeric output in its timings. It excludes final filesystem writes.
 
 # TODOs
-- [ ] Compare output to previous python pipeline thoroughly
-- [ ] Implement topology choices  
+- [x] Compare output to previous python pipeline thoroughly
+- [x] Implement topology choices  
     (need revbayes or MrBayes dep?, implement these in [`phylotree-rs`](https://github.com/lucblassel/phylotree-rs) and use that as a dependecy?)
-    - [ ] Birth death
+    - [x] Birth death
     - [x] Uniform
-    - [ ] ete3's "uniform"
-    - [ ] Gamma branch lengths
-    - [ ] Rescaled birth-death branches
-    - [ ] rescaling to empirical diameters
-- [ ] Implement parallel simulation
+    - [x] ete3's "uniform"
+    - [x] Gamma branch lengths
+    - [x] Rescaled birth-death branches
+    - [x] rescaling to empirical diameters
+- [x] Implement parallel simulation
 - [ ] Simulate directly into new packed and sharded dataset format

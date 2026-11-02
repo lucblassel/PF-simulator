@@ -1,0 +1,64 @@
+{
+  "date": "2026-11-02T14:37:33.923571+00:00",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "logical_cpus": 10,
+  "master_seeds": [
+    20261102,
+    20261103,
+    20261104
+  ],
+  "rounds": 3,
+  "cases": [
+    {
+      "tips": 50,
+      "sites": 500,
+      "candidates": 16
+    },
+    {
+      "tips": 200,
+      "sites": 5000,
+      "candidates": 4
+    }
+  ],
+  "source_sha256": {
+    "target/release/examples/benchmark_pipeline_costs": "616ba92dde33c9482627e752bd1578c13dccfa3f5ea946e7df443be3a11803b9",
+    "target/alisim-reference/build/iqtree/iqtree2": "bccb0b9be88e60f5d5e9e66837aaace20d265eb714c64251d66af8e30f12ef8f",
+    "examples/benchmark_pipeline_costs.rs": "efa27b392e8d2a86acf0fd37d1ba9af34fa743e909d22f9a8e8f384b29767080",
+    "benchmarks/summarize_pipeline_costs.py": "769daba0f4b1275b0c076e0620159a498fe97eeda0e606958b9ac01275714577",
+    "Cargo.lock": "0a93c94af56711cc6c75e96fcdd2b88abf593075e7c255af99c920b593fbddb9",
+    "src/rng.rs": "2db7f9e66e189d0deed81b5aa82c7866cf152f0af9b2f5ba9507d8ce3cd572ee",
+    "src/error.rs": "e7a93ed65d7fe55c231530db92df9fee89e2848f9d993bfd64f241c8a80c83b4",
+    "src/alignment.rs": "fcaecc5a77df8f1e95de83774cdc5d33ea19038089c5e832d69bea1c572cf80d",
+    "src/lib.rs": "90a00aaf332d989b4cc378a62a7a36d099972452c3055b981c5c376c32b49601",
+    "src/tree.rs": "576d4ae297ca3c8d27640378f6c28b164721455794b38d1b2252fb4f4ab3cc1f",
+    "src/workers.rs": "9ece15922f4fde8ed641b291b33c748753d89fd86dfe9c181ae4cdc268e8827d",
+    "src/selection.rs": "7d3d5203301500c40664368a7e4cfc1c0faf7092e1e03a9cb72b53a75f7dc243",
+    "src/main.rs": "70d3095584af3e675ed193c913f685c8949ef9710716ccdd0f4a1583acbf2c93",
+    "src/site_rates.rs": "934e064ebae6a359b0adb1178d13cb574f44e3ffab647af45186371ad2294124",
+    "src/tree_simulation.rs": "18ac504d8dd550c58263b143bc88c6bff29b461be0a30083ea414228ab4ad4d6",
+    "src/run_summary.rs": "04c83aabe2d01a40db409e62c98db3401736e34213e64ff0782d51d580dd6fc7",
+    "native/numeric_output.hpp": "4bc5e4954b258afe8bd8f08bf86285d358d45a206cd176d758fbc4d1ffe29114",
+    "native/alisim_bridge.h": "d02996f7f85ec1f4575349fd5e6b75c6fa5d9229d381d77130c850d1bb420d32",
+    "native/memory_io.cmake": "583067ad959e6906e9ae170e024e4091215ba7dac1221dacfa2491e70904e7d9",
+    "native/memory_io.hpp": "86bc2a4d20f9e9bf942d2eda6bf5577676239eb549d95aadcb6e70d070b8efe7",
+    "native/tree_input.hpp": "631510926bdcbc8e725d293dd2b5ee59e971a56e205672b59f437e1e41afda5a",
+    "native/iqtree_sequential_compat.hpp": "d97e6131bde7ec4f6fedf206292458033cfd3aa0e7083d1deec7258f2640d344",
+    "native/alisim_bridge.cpp": "8a275f68df3bf2c8fb0944e4abb6cbddfc221884c01d5e5304394ec627a6237d"
+  },
+  "iqtree_commit": "a00094e03d1ae984e1497e16738f91514df8c366",
+  "command": "target/release/examples/benchmark_pipeline_costs --output benchmarks/gamma_costs --reference target/alisim-reference/build/iqtree/iqtree2 --gammas none,G4,G8,GC",
+  "checks_repeats": 10,
+  "jobs": 1,
+  "gamma_modes": [
+    "none",
+    "G4",
+    "G8",
+    "GC"
+  ],
+  "verification": {
+    "timed_rows": 480,
+    "ancestor_pairs_checked": 240,
+    "paired_shapes_across_gamma_modes": 60,
+    "all_large_candidates_passed_window": true
+  }
+}

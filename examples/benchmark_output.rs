@@ -244,6 +244,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     .starts_with("indel")
                     .then(|| "POW{1.7/100},POW{1.7/100}".into()),
                 no_unaligned: false,
+                ancestral: false,
             };
             verify(&tree, &rust_tree, &prefix, &config, tips)?;
             let estimate = measure(baseline, &tree, &rust_tree, &prefix, &config, 1, 123)?.pipeline;

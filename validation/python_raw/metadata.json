@@ -1,0 +1,49 @@
+{
+  "samples": 3000,
+  "length": 200,
+  "jobs": 8,
+  "cases": [
+    [
+      "GC",
+      "bd50"
+    ],
+    [
+      "G8",
+      "bd50"
+    ],
+    [
+      "GC",
+      "bd200"
+    ],
+    [
+      "G8",
+      "bd200"
+    ]
+  ],
+  "alpha_count": 12408,
+  "pilot": false,
+  "tree_bank_backend_offset": 10,
+  "binaries": {
+    "/Users/lucblassel/Work/PF-simulator/target/release/pf-sim": "e352c9986d6c5ee5e4da16b2206e17d1768d96d16b97bbec68bdde5cc2831e13",
+    "/Users/lucblassel/Work/PF-simulator/target/release/examples/validate_alisim": "1cad01b8f0c03edb8f30eafea26a4e867b1aaf6b2440b9f1ca09d5f364ae7236",
+    "/Users/lucblassel/Work/PF-simulator/target/alisim-reference/build/iqtree/iqtree2": "bccb0b9be88e60f5d5e9e66837aaace20d265eb714c64251d66af8e30f12ef8f",
+    "/Users/lucblassel/.local/bin/iqtree2": "d80673685b3139fa0f25ab5546fffcf995e6e8de59727390dcc5df27ebebfe15"
+  },
+  "versions": {
+    "/Users/lucblassel/Work/PF-simulator/target/alisim-reference/build/iqtree/iqtree2": "IQ-TREE multicore version 2.4.0 for MacOS ARM 64-bit built Nov  1 2026\nDeveloped by Bui Quang Minh, Nguyen Lam Tung, Olga Chernomor, Heiko Schmidt,\nDominik Schrempf, Michael Woodhams, Ly Trong Nhan, Thomas Wong",
+    "/Users/lucblassel/.local/bin/iqtree2": "IQ-TREE multicore version 2.2.2.6 COVID-edition for Mac OS X 64-bit built May 27 2023\nDeveloped by Bui Quang Minh, James Barbetti, Nguyen Lam Tung,\nOlga Chernomor, Heiko Schmidt, Dominik Schrempf, Michael Woodhams, Ly Trong Nhan."
+  },
+  "sources": {
+    "/Users/lucblassel/Work/PF-simulator/scripts/validate_raw_python.py": "a4b95ff94f4302ebb8e343f8dcebc42848e7bd8a77afcc8761ade5bbe10a1ef0",
+    "/Users/lucblassel/Work/PF-simulator/scripts/validate_msa_priors.py": "efe512b34cfd5beb62ea77b9bc7aabbd463c10d7058f8010232dc67f0c02ba8c",
+    "/Users/lucblassel/Work/bayesnj_simulation/scripts/alisim.py": "dd4a2bf98e33c51d4aa8a85f9a00d0b9451c4ece274f48201955492e42c234e0",
+    "/Users/lucblassel/Work/bayesnj_simulation/scripts/hogenom_alphas.txt": "1527b12722751a395ee9483ee15af2f92715a25dc2560011e47d269090355ccb",
+    "/Users/lucblassel/Work/PF-simulator/examples/validate_alisim.rs": "36b6a5998b89ad1ed0177bf2bc787a2d346a7adb38dea7cc444e29c71c71f76a",
+    "/Users/lucblassel/Work/PF-simulator/native/alisim_bridge.cpp": "ba1486d985591d84ebc864f9ef3081c993fe2111424c8a8e9acdd0cfadf66501"
+  },
+  "alpha_prior": "actual alisim.py sample_scale: uniform empirical choice + N(0, alpha/10), floor 0.05",
+  "baseline_hash": "c16ce3b6d593a12bded5a67ae5ced9d0e11e27bee11bb8574415590c639e9160",
+  "comparisons": 704,
+  "constant_checks": 32,
+  "family_size": 736
+}

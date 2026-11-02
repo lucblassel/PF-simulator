@@ -1,0 +1,132 @@
+{
+  "samples": 3000,
+  "jobs": 8,
+  "binaries": {
+    "/Users/lucblassel/Work/PF-simulator/target/release/pf-sim": "e352c9986d6c5ee5e4da16b2206e17d1768d96d16b97bbec68bdde5cc2831e13",
+    "/Users/lucblassel/Work/PF-simulator/target/release/examples/validate_alisim": "1cad01b8f0c03edb8f30eafea26a4e867b1aaf6b2440b9f1ca09d5f364ae7236",
+    "/Users/lucblassel/Work/PF-simulator/target/alisim-reference/build/iqtree/iqtree2": "bccb0b9be88e60f5d5e9e66837aaace20d265eb714c64251d66af8e30f12ef8f",
+    "/Users/lucblassel/.local/bin/iqtree2": "d80673685b3139fa0f25ab5546fffcf995e6e8de59727390dcc5df27ebebfe15"
+  },
+  "versions": {
+    "/Users/lucblassel/Work/PF-simulator/target/alisim-reference/build/iqtree/iqtree2": "IQ-TREE multicore version 2.4.0 for MacOS ARM 64-bit built Nov  1 2026\nDeveloped by Bui Quang Minh, Nguyen Lam Tung, Olga Chernomor, Heiko Schmidt,\nDominik Schrempf, Michael Woodhams, Ly Trong Nhan, Thomas Wong",
+    "/Users/lucblassel/.local/bin/iqtree2": "IQ-TREE multicore version 2.2.2.6 COVID-edition for Mac OS X 64-bit built May 27 2023\nDeveloped by Bui Quang Minh, James Barbetti, Nguyen Lam Tung,\nOlga Chernomor, Heiko Schmidt, Dominik Schrempf, Michael Woodhams, Ly Trong Nhan."
+  },
+  "source_revision": "a00094e03d1ae984e1497e16738f91514df8c366",
+  "source_hashes": {
+    "/Users/lucblassel/Work/PF-simulator/scripts/validate_msa_priors.py": "efe512b34cfd5beb62ea77b9bc7aabbd463c10d7058f8010232dc67f0c02ba8c",
+    "/Users/lucblassel/Work/PF-simulator/native/alisim_bridge.cpp": "ba1486d985591d84ebc864f9ef3081c993fe2111424c8a8e9acdd0cfadf66501",
+    "/Users/lucblassel/Work/PF-simulator/native/memory_io.cmake": "3b9cb6fb62023ced44da7a0f1dbd178423c4541e1207631c1299ef3f506637db",
+    "/Users/lucblassel/Work/PF-simulator/examples/validate_alisim.rs": "36b6a5998b89ad1ed0177bf2bc787a2d346a7adb38dea7cc444e29c71c71f76a",
+    "/Users/lucblassel/Work/PF-simulator/scripts/build_alisim_reference.py": "dce283d4e261799935ddb0643517779e58d7ba9201fc62110253c15437bfb69d",
+    "/Users/lucblassel/Work/PF-simulator/src/tree.rs": "24e2193df43d89d9605ff7525a19b436468b943721943d88e798344cc906c590",
+    "/Users/lucblassel/Work/PF-simulator/src/alignment.rs": "b9f7acbbfffe6698031ce96c63fb47942fd91abe7f439f9d432f2439ba57aaef",
+    "/Users/lucblassel/Work/bayesnj_simulation/scripts/alisim.py": "dd4a2bf98e33c51d4aa8a85f9a00d0b9451c4ece274f48201955492e42c234e0",
+    "/Users/lucblassel/Work/bayesnj_simulation/scripts/find_unduplicated.py": "6a3f9611bcedb2f4c9752ce0932e902f41e25bc0939a6f8690fa26fac77f55af",
+    "/Users/lucblassel/Work/bayesnj_simulation/scripts/hogenom_alphas.txt": "1527b12722751a395ee9483ee15af2f92715a25dc2560011e47d269090355ccb",
+    "/Users/lucblassel/Work/bayesnj_simulation/Snakefile": "c2e31ffdeece16c6563abb860159a5d845ca26d7a069e296eff829ad00b75517"
+  },
+  "cases": [
+    [
+      "lg_u10",
+      "u10",
+      "LG",
+      "AA",
+      200,
+      "",
+      ""
+    ],
+    [
+      "lg_bd50",
+      "bd50",
+      "LG",
+      "AA",
+      200,
+      "",
+      ""
+    ],
+    [
+      "lg_u200",
+      "u200",
+      "LG",
+      "AA",
+      200,
+      "",
+      ""
+    ],
+    [
+      "g8_bd50",
+      "bd50",
+      "LG+G8{0.5}",
+      "AA",
+      200,
+      "",
+      ""
+    ],
+    [
+      "gc_bd50",
+      "bd50",
+      "LG+GC{0.5}",
+      "AA",
+      200,
+      "",
+      ""
+    ],
+    [
+      "invariant_bd50",
+      "bd50",
+      "LG+I{0.2}",
+      "AA",
+      200,
+      "",
+      ""
+    ],
+    [
+      "pow_bd50",
+      "bd50",
+      "LG",
+      "AA",
+      200,
+      "0.002,0.002",
+      "POW{1.7/100},POW{1.7/100}"
+    ],
+    [
+      "gc_pow_bd50",
+      "bd50",
+      "LG+GC{0.5}",
+      "AA",
+      200,
+      "0.002,0.002",
+      "POW{1.7/100},POW{1.7/100}"
+    ],
+    [
+      "jc_u10",
+      "u10",
+      "JC",
+      "DNA",
+      200,
+      "",
+      ""
+    ],
+    [
+      "duplicates_u4",
+      "u4",
+      "JC",
+      "DNA",
+      2,
+      "",
+      ""
+    ]
+  ],
+  "family_alpha": 0.01,
+  "reference_build": "Unmodified pinned source with OpenMP, 1 runtime thread, -lk x86; no memory adapters",
+  "pf_emitted_counts": {
+    "requested_samples": 3000,
+    "written_samples": 2154,
+    "failed_duplicate_samples": 846
+  },
+  "python_GC_accepted": 701,
+  "python_G8_accepted": 693,
+  "comparisons": 679,
+  "bonferroni_family_size": 920,
+  "structural_constant_checks": 241
+}

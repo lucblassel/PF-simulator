@@ -1,0 +1,194 @@
+[
+  {
+    "comparison": "GC_bd50/python_240/aligned",
+    "metric": "records",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "GC_bd50/python_240/aligned",
+    "metric": "tips",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "GC_bd50/python_240/unaligned",
+    "metric": "records",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "GC_bd50/python_2226/aligned",
+    "metric": "records",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "GC_bd50/python_2226/aligned",
+    "metric": "tips",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "GC_bd50/python_2226/unaligned",
+    "metric": "records",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "G8_bd50/python_240/aligned",
+    "metric": "records",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "G8_bd50/python_240/aligned",
+    "metric": "tips",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "G8_bd50/python_240/unaligned",
+    "metric": "records",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "G8_bd50/python_2226/aligned",
+    "metric": "records",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "G8_bd50/python_2226/aligned",
+    "metric": "tips",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "G8_bd50/python_2226/unaligned",
+    "metric": "records",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "GC_bd200/python_240/aligned",
+    "metric": "records",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "GC_bd200/python_240/aligned",
+    "metric": "tips",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "GC_bd200/python_240/unaligned",
+    "metric": "records",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "GC_bd200/python_2226/aligned",
+    "metric": "records",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "GC_bd200/python_2226/aligned",
+    "metric": "tips",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "GC_bd200/python_2226/unaligned",
+    "metric": "records",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "G8_bd200/python_240/aligned",
+    "metric": "records",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "G8_bd200/python_240/aligned",
+    "metric": "tips",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "G8_bd200/python_240/unaligned",
+    "metric": "records",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "G8_bd200/python_2226/aligned",
+    "metric": "records",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "G8_bd200/python_2226/aligned",
+    "metric": "tips",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "G8_bd200/python_2226/unaligned",
+    "metric": "records",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "default_LG_vs_GC/python_240",
+    "metric": "records",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "default_LG_vs_GC/python_240",
+    "metric": "tips",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "default_LG_vs_GC/python_2226",
+    "metric": "records",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "default_LG_vs_GC/python_2226",
+    "metric": "tips",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "default_LG_vs_G8/python_240",
+    "metric": "records",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "default_LG_vs_G8/python_240",
+    "metric": "tips",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "default_LG_vs_G8/python_2226",
+    "metric": "records",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "default_LG_vs_G8/python_2226",
+    "metric": "tips",
+    "value": 50.0,
+    "n": 3000
+  }
+]

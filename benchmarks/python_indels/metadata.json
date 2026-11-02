@@ -1,0 +1,79 @@
+{
+  "started_utc": "2026-11-02T09:54:56.173541+00:00",
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "logical_cpus": 10,
+  "python": "3.12.7",
+  "repeats": 3,
+  "cases": [
+    [
+      "indels_50",
+      128,
+      50,
+      500
+    ],
+    [
+      "indels_200",
+      128,
+      200,
+      5000
+    ]
+  ],
+  "settings": [
+    [
+      "rust",
+      1
+    ],
+    [
+      "python_ancestral",
+      1
+    ],
+    [
+      "python_tips",
+      1
+    ],
+    [
+      "rust",
+      4
+    ],
+    [
+      "python_ancestral",
+      4
+    ],
+    [
+      "python_tips",
+      4
+    ],
+    [
+      "rust",
+      8
+    ],
+    [
+      "python_ancestral",
+      8
+    ],
+    [
+      "python_tips",
+      8
+    ]
+  ],
+  "seed_base": 20261102,
+  "model": "LG",
+  "gamma": null,
+  "indel": "0.002,0.002",
+  "indel_size": "POW{1.7/100},POW{1.7/100}",
+  "duplicate_checks": false,
+  "binaries": {
+    "/Users/lucblassel/Work/PF-simulator/target/release/pf-sim": "e352c9986d6c5ee5e4da16b2206e17d1768d96d16b97bbec68bdde5cc2831e13",
+    "/Users/lucblassel/Work/PF-simulator/target/alisim-reference/build/iqtree/iqtree2": "bccb0b9be88e60f5d5e9e66837aaace20d265eb714c64251d66af8e30f12ef8f"
+  },
+  "reference_version": "IQ-TREE multicore version 2.4.0 for MacOS ARM 64-bit built Nov  1 2026\nDeveloped by Bui Quang Minh, Nguyen Lam Tung, Olga Chernomor, Heiko Schmidt,\nDominik Schrempf, Michael Woodhams, Ly Trong Nhan, Thomas Wong",
+  "sources": {
+    "/Users/lucblassel/Work/PF-simulator/benchmarks/benchmark_python_indels.py": "d0ad0c56082966d85228696bd0e6212615a837cf478e213cb45baa57f07fc2cf",
+    "/Users/lucblassel/Work/PF-simulator/benchmarks/benchmark_python.py": "e0f837618d3e5bc146cc655ce93de51a51405e1057d26da1acc8eb154bf8eda0",
+    "/Users/lucblassel/Work/bayesnj_simulation/scripts/SimulateAlterRescale.py": "b8e52d6b4c2fa8f5b9b6e43312f0f480f34e552ab8bdf77e2904bab0f68897b7",
+    "/Users/lucblassel/Work/bayesnj_simulation/scripts/alisim.py": "dd4a2bf98e33c51d4aa8a85f9a00d0b9451c4ece274f48201955492e42c234e0",
+    "/Users/lucblassel/Work/bayesnj_simulation/scripts/hogenom_diams.txt": "5bc996f066a768604d233b6418d26518786f1b868d342b7bd34cb1af70c40749",
+    "/Users/lucblassel/Work/bayesnj_simulation/scripts/raxml_diams.txt": "7a976202685311c4b058d74e08683db859a7e0802f50d12611a17f3404ecdf58"
+  },
+  "completed_utc": "2026-11-02T10:03:18.354216+00:00"
+}

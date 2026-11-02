@@ -55,10 +55,17 @@ inline void capture_raw(const std::string& name, const std::vector<short int>& s
     data.rows.push_back(std::move(row));
 }
 
+inline std::string sequence_name(const Node* node) {
+    return node->name.empty() ? std::to_string(node->id) : node->name;
+}
+
 inline void capture_retained_rows(Node* node, Node* dad, bool skip_leaves,
                                   int length, const std::vector<std::string>& mapping) {
-    if (node->isLeaf() && node->name != ROOT_NAME && !skip_leaves)
-        capture_raw(node->name, node->sequence->sequence_chunks[0], length, mapping);
+    const auto& params = Params::getInstance();
+    if (!(node->isLeaf() && skip_leaves) &&
+        ((node->isLeaf() && node->name != ROOT_NAME) ||
+         (params.alisim_write_internal_sequences && params.alisim_insertion_ratio + params.alisim_deletion_ratio > 0)))
+        capture_raw(sequence_name(node), node->sequence->sequence_chunks[0], length, mapping);
     NeighborVec::iterator it;
     FOR_NEIGHBOR(node, dad, it) {
         capture_retained_rows((*it)->node, node, skip_leaves, length, mapping);

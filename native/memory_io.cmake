@@ -40,13 +40,16 @@ function(pf_memory_source target relative begin end)
             "void AliSimulator::writeInternalStatesIndels(Node* node, ostream &out)\n{\n    if (pf::raw_enabled()) {\n        pf::raw_state().originals.push_back({node->name, std::move(node->sequence->sequence_chunks[0])});\n        map_seqname_node[node->name] = node;\n        return;\n    }")
         pf_replace_required(source
             "    // we can only write and delete sequence chunk in normal simulations: without Indels, FunDi, ASC, etc"
-            "    if (pf::raw_enabled() && store_seq_at_cache) {\n        if ((*it)->node->isLeaf()) pf::capture_raw((*it)->node->name, node_seq_chunk, segment_length, state_mapping);\n        if (node->isLeaf() && node->name != ROOT_NAME) pf::capture_raw(node->name, dad_seq_chunk, segment_length, state_mapping);\n        return;\n    }\n    // we can only write and delete sequence chunk in normal simulations: without Indels, FunDi, ASC, etc")
+            "    if (pf::raw_enabled() && store_seq_at_cache) {\n        if ((*it)->node->isLeaf() || params->alisim_write_internal_sequences) pf::capture_raw(pf::sequence_name((*it)->node), node_seq_chunk, segment_length, state_mapping);\n        if (node->isLeaf() && node->name != ROOT_NAME) pf::capture_raw(pf::sequence_name(node), dad_seq_chunk, segment_length, state_mapping);\n        return;\n    }\n    // we can only write and delete sequence chunk in normal simulations: without Indels, FunDi, ASC, etc")
     else()
         pf_replace_required(source
             "    // read tmp_data line by line"
             "    if (pf::raw_enabled()) { pf::capture_indel_rows(alisimulator, sequence_length, state_mapping); return; }\n    // read tmp_data line by line")
     endif()
     if(target STREQUAL "main")
+        pf_replace_required(source
+            "        outputTreeWithInternalNames(super_alisimulator);"
+            "        if (!pf::raw_enabled()) outputTreeWithInternalNames(super_alisimulator);")
         pf_replace_required(source
             "    // if write_sequences_from_tmp_data and this node is a leaf -> skip this node as its sequence was already written to the output file"
             "    if (pf::raw_enabled()) { pf::capture_retained_rows(node, dad, write_sequences_from_tmp_data, sequence_length, state_mapping); return; }\n    // if write_sequences_from_tmp_data and this node is a leaf -> skip this node as its sequence was already written to the output file")

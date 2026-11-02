@@ -24,7 +24,7 @@ pub enum BranchPrior {
     ProcessTime,
 }
 
-/// Named tree-generation pipelines; alignment settings are independent.
+/// Named tree-generation pipelines. The CLI also applies alignment defaults.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, ValueEnum)]
 pub enum Preset {
     /// Uniform unrooted topology and exponential branches with mean 0.1.
@@ -42,7 +42,7 @@ pub struct TreeArgs {
         value_enum,
         default_value_t = Preset::Default,
         hide_possible_values = true,
-        long_help = "Tree simulation strategy (alignment settings are independent).\n\n  default: uniform unrooted topology with exponential branch lengths (mean 0.1).\n  python: birth-death process times (birth 1, death 0.5), inherited rate changes, bundled empirical diameter scaling, then terminal repair below 0.001.\n\nNumeric settings and the empirical data file remain configurable. The python preset requires birth-death topology and process-time branches."
+        long_help = "Tree simulation strategy. In the CLI, python also defaults to LG + empirical G8 unless --model or --gamma overrides it.\n\n  default: uniform unrooted topology with exponential branch lengths (mean 0.1).\n  python: birth-death process times (birth 1, death 0.5), inherited rate changes, bundled empirical diameter scaling, then terminal repair below 0.001.\n\nNumeric settings and the empirical data file remain configurable. The python preset requires birth-death topology and process-time branches."
     )]
     pub preset: Preset,
     /// Topology prior (default: uniform unrooted; the python preset selects birth-death).

@@ -1,0 +1,157 @@
+{
+  "tree": "(T1:0.1,T2:0.2,(T3:0.3,T4:0.4):0.5);",
+  "model": "JC",
+  "samples": 200,
+  "root_length": 5000,
+  "binaries": {
+    "/Users/lucblassel/Work/PF-simulator/target/release/examples/validate_alisim": "1cad01b8f0c03edb8f30eafea26a4e867b1aaf6b2440b9f1ca09d5f364ae7236",
+    "/Users/lucblassel/Work/PF-simulator/target/alisim-reference/build/iqtree/iqtree2": "bccb0b9be88e60f5d5e9e66837aaace20d265eb714c64251d66af8e30f12ef8f",
+    "/Users/lucblassel/.local/bin/iqtree2": "d80673685b3139fa0f25ab5546fffcf995e6e8de59727390dcc5df27ebebfe15"
+  },
+  "summary": [
+    {
+      "backend": "bridge",
+      "pair": "T1_T2",
+      "distance": 0.3,
+      "expected": 0.2472599654732705,
+      "observed": 0.247609,
+      "standard_error": 0.00042125511791770467
+    },
+    {
+      "backend": "bridge",
+      "pair": "T1_T3",
+      "distance": 0.9,
+      "expected": 0.5241043410658484,
+      "observed": 0.523406,
+      "standard_error": 0.000494368100806957
+    },
+    {
+      "backend": "bridge",
+      "pair": "T1_T4",
+      "distance": 1.0,
+      "expected": 0.552302146413205,
+      "observed": 0.552203,
+      "standard_error": 0.0004909665935477685
+    },
+    {
+      "backend": "bridge",
+      "pair": "T2_T3",
+      "distance": 1.0,
+      "expected": 0.552302146413205,
+      "observed": 0.552294,
+      "standard_error": 0.0004930245287302125
+    },
+    {
+      "backend": "bridge",
+      "pair": "T2_T4",
+      "distance": 1.1,
+      "expected": 0.5769801133087779,
+      "observed": 0.577107,
+      "standard_error": 0.0005158588048416574
+    },
+    {
+      "backend": "bridge",
+      "pair": "T3_T4",
+      "distance": 0.7,
+      "expected": 0.45506945934855125,
+      "observed": 0.4541030000000001,
+      "standard_error": 0.0004952517810499685
+    },
+    {
+      "backend": "standalone_240",
+      "pair": "T1_T2",
+      "distance": 0.3,
+      "expected": 0.2472599654732705,
+      "observed": 0.24701599999999999,
+      "standard_error": 0.00041311991031842983
+    },
+    {
+      "backend": "standalone_240",
+      "pair": "T1_T3",
+      "distance": 0.9,
+      "expected": 0.5241043410658484,
+      "observed": 0.524427,
+      "standard_error": 0.0005052660923915269
+    },
+    {
+      "backend": "standalone_240",
+      "pair": "T1_T4",
+      "distance": 1.0,
+      "expected": 0.552302146413205,
+      "observed": 0.553067,
+      "standard_error": 0.0004973038412809253
+    },
+    {
+      "backend": "standalone_240",
+      "pair": "T2_T3",
+      "distance": 1.0,
+      "expected": 0.552302146413205,
+      "observed": 0.552335,
+      "standard_error": 0.0004994347307218995
+    },
+    {
+      "backend": "standalone_240",
+      "pair": "T2_T4",
+      "distance": 1.1,
+      "expected": 0.5769801133087779,
+      "observed": 0.577305,
+      "standard_error": 0.0004845283413463439
+    },
+    {
+      "backend": "standalone_240",
+      "pair": "T3_T4",
+      "distance": 0.7,
+      "expected": 0.45506945934855125,
+      "observed": 0.455646,
+      "standard_error": 0.00048151292139187373
+    },
+    {
+      "backend": "standalone_2226",
+      "pair": "T1_T2",
+      "distance": 0.3,
+      "expected": 0.2472599654732705,
+      "observed": 0.175743,
+      "standard_error": 0.0004039015191676427
+    },
+    {
+      "backend": "standalone_2226",
+      "pair": "T1_T3",
+      "distance": 0.9,
+      "expected": 0.5241043410658484,
+      "observed": 0.49138600000000004,
+      "standard_error": 0.0005091613165109421
+    },
+    {
+      "backend": "standalone_2226",
+      "pair": "T1_T4",
+      "distance": 1.0,
+      "expected": 0.552302146413205,
+      "observed": 0.524104,
+      "standard_error": 0.0004728486536369024
+    },
+    {
+      "backend": "standalone_2226",
+      "pair": "T2_T3",
+      "distance": 1.0,
+      "expected": 0.552302146413205,
+      "observed": 0.5514370000000001,
+      "standard_error": 0.0005037249738162996
+    },
+    {
+      "backend": "standalone_2226",
+      "pair": "T2_T4",
+      "distance": 1.1,
+      "expected": 0.5769801133087779,
+      "observed": 0.577015,
+      "standard_error": 0.00045822672736140337
+    },
+    {
+      "backend": "standalone_2226",
+      "pair": "T3_T4",
+      "distance": 0.7,
+      "expected": 0.45506945934855125,
+      "observed": 0.454936,
+      "standard_error": 0.0005142037998096606
+    }
+  ]
+}

@@ -87,6 +87,290 @@ def tree_paths(path: Path) -> dict[str, dict[int, float]]:
 
 
 class SimulationTests(unittest.TestCase):
+    def test_ancestral_exports_map_to_tree_and_preserve_worker_determinism(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            options = ("--preset", "python", "--ancestral", "--samples", "6", "--tips", "8",
+                       "--length", "500", "--seed", "42", "--indel", "0.002,0.002",
+                       "--indel-size", "POW{1.7/100},POW{1.7/100}", "--materialize", "all",
+                       "--require-unique-window", "--max-attempts", "1")
+            outputs = []
+            for jobs in [1, 3]:
+                output = root / str(jobs)
+                run(output, *options, "--jobs", str(jobs))
+                files = sorted((output / "msa_untrimmed").glob("*.fa"))
+                self.assertGreater(len(files), 0)
+                for path in files:
+                    rows = fasta(path)
+                    self.assertEqual(len(rows), 15)
+                    internal = set(rows) - {f"T{i}" for i in range(1, 9)}
+                    tree = (output / "trees" / f"{path.stem}.nwk").read_text()
+                    self.assertEqual(set(re.findall(r"I_\d+", tree)), internal)
+                    self.assertEqual(fasta(output / "unaligned" / path.name), {name: row.replace("-", "") for name, row in rows.items()})
+                    meta = json.loads((output / "metadata" / f"{path.stem}.json").read_text())
+                    self.assertEqual(set(meta["ancestral_names"]), internal)
+                    self.assertTrue(meta["ancestral"])
+                    window = meta["window"]
+                    self.assertEqual(fasta(output / "msa_trimmed" / path.name), {name: row[window["start"]:window["end"]] for name, row in rows.items()})
+                outputs.append({p.relative_to(output): p.read_bytes() for p in output.rglob("*") if p.is_file() and p.name != "simulation_summary.json"})
+            self.assertEqual(*outputs)
+
+    def test_default_output_and_optional_materialized_views(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            options = ("--tips", "8", "--samples", "3", "--length", "100", "--seed", "42",
+                       "--branch-mean", "0.3", "--indel", "0.1,0.05", "--indel-size", "GEO{2},GEO{3}")
+            plain, full = root / "plain", root / "full"
+            run(plain, *options)
+            run(full, *options, "--materialize", "trimmed,unaligned")
+            self.assertFalse((plain / "msa_trimmed").exists())
+            self.assertFalse((plain / "unaligned").exists())
+            self.assertFalse((plain / "sequences").exists())
+            for source in (plain / "msa_untrimmed").glob("*.fa"):
+                raw = fasta(source)
+                self.assertEqual(source.read_bytes(), (full / "msa_untrimmed" / source.name).read_bytes())
+                self.assertEqual(fasta(full / "msa_trimmed" / source.name), {name: row[:100] for name, row in raw.items()})
+                self.assertEqual(fasta(full / "unaligned" / source.name), {name: row.replace("-", "") for name, row in raw.items()})
+                metadata = json.loads((plain / "metadata" / f"{source.stem}.json").read_text())
+                self.assertEqual(metadata["window"]["start"], 0)
+                self.assertEqual(metadata["window"]["end"], 100)
+                self.assertFalse(metadata["window"]["uniqueness_checked"])
+                self.assertEqual(metadata["checks"], {"distinct_gapped": True, "distinct_ungapped": False, "unique_window": False})
+                self.assertEqual(metadata["alignment_columns"], len(next(iter(raw.values()))))
+                self.assertEqual(metadata["tip_names"], [f"T{i}" for i in range(1, 9)])
+            conflict = run(root / "conflict", *options, "--materialize", "unaligned", "--no-unaligned", success=False)
+            self.assertIn("conflicts", conflict.stderr)
+
+    def test_independent_checks_allow_override_and_window_failures(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            impossible = ("--tips", "5", "--length", "1", "--seqtype", "DNA", "--model", "JC",
+                          "--max-attempts", "2", "--samples", "2", "--seed", "42")
+            for name, checks, reason in [
+                ("gapped", (), "gapped"),
+                ("ungapped", ("--require-distinct-gapped=false", "--require-distinct-ungapped"), "ungapped"),
+                ("window", ("--require-distinct-gapped=false", "--require-unique-window"), "window"),
+            ]:
+                output = root / name
+                run(output, *impossible, *checks, "--jobs", "2")
+                summary = json.loads((output / "simulation_summary.json").read_text())
+                self.assertEqual(summary["failed_samples"], 2)
+                self.assertEqual(summary["failed_samples_by_last_rejection"][reason], 2)
+                self.assertEqual(summary["failed_samples_percentage_by_last_rejection"][reason], 100.0)
+                self.assertEqual(summary["written_samples"], 0)
+                self.assertEqual(list((output / "metadata").iterdir()), [])
+                self.assertEqual(summary["failed_duplicate_samples"], 0 if reason == "window" else 2)
+            all_checks = ("--require-distinct-gapped", "--require-distinct-ungapped", "--require-unique-window")
+            allowed = root / "allowed"
+            run(allowed, *impossible, *all_checks, "--allow-duplicate-sequences", "--materialize", "all", "--jobs", "2")
+            for path in (allowed / "metadata").glob("*.json"):
+                metadata = json.loads(path.read_text())
+                self.assertFalse(any(metadata["checks"].values()))
+                self.assertEqual(metadata["attempt_number"], 1)
+                self.assertEqual(metadata["window"]["selection"], "prefix")
+                self.assertFalse(metadata["window"]["uniqueness_checked"])
+                msa = fasta(allowed / "msa_untrimmed" / f"{path.stem}.fa")
+                self.assertLess(len(set(msa.values())), len(msa))
+                self.assertEqual(fasta(allowed / "unaligned" / f"{path.stem}.fa"), msa)
+            unchecked = root / "unchecked"
+            run(unchecked, *impossible, "--require-distinct-gapped=false")
+            self.assertEqual(len(list((unchecked / "msa_untrimmed").glob("*.fa"))), 2)
+
+    def test_window_selection_materialization_replay_and_workers(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            options = ("--tips", "8", "--samples", "4", "--length", "60", "--seed", "17",
+                       "--branch-mean", "0.3", "--indel", "0.1,0.05", "--indel-size", "GEO{2},GEO{3}",
+                       "--require-distinct-ungapped", "--require-unique-window", "--window-policy", "inclusive",
+                       "--materialize", "all")
+            serial = root / "serial"
+            run(serial, *options)
+            self.assertEqual(len(list((serial / "metadata").glob("*.json"))), 4)
+            for path in (serial / "metadata").glob("*.json"):
+                meta = json.loads(path.read_text())
+                msa = fasta(serial / "msa_untrimmed" / f"{path.stem}.fa")
+                rows = list(msa.values())
+                width = len(rows[0])
+                start = next(i for i in range(width - 60 + 1) if len({row[i:i+60] for row in rows}) == len(rows))
+                self.assertEqual(meta["window"]["start"], start)
+                self.assertEqual(meta["window"]["end"], start + 60)
+                self.assertTrue(meta["window"]["uniqueness_checked"])
+                self.assertEqual(fasta(serial / "msa_trimmed" / f"{path.stem}.fa"), {name: row[start:start+60] for name, row in msa.items()})
+                self.assertEqual(len({row.replace("-", "") for row in rows}), len(rows))
+            parallel = root / "parallel"
+            run(parallel, *options, "--jobs", "3")
+            def snapshot(output):
+                return {p.relative_to(output): p.read_bytes() for p in output.rglob("*") if p.is_file() and p.name != "simulation_summary.json"}
+            self.assertEqual(snapshot(serial), snapshot(parallel))
+            summary = json.loads((serial / "simulation_summary.json").read_text())
+            self.assertIn("--require-unique-window=true", summary["resolved_arguments"])
+            self.assertIn("--materialize=all", summary["resolved_arguments"])
+            result = subprocess.run(["bash", "-c", summary["reproduce_command"] + '\nprintf "REPLAY=%s\\n" "$replay_dir"'], capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            replay = Path(re.search(r"REPLAY=(.+)", result.stdout).group(1))
+            try:
+                self.assertEqual(snapshot(serial), snapshot(replay / "data"))
+            finally:
+                import shutil
+                shutil.rmtree(replay)
+            # Failed windows must also trigger replacement candidates under --ensure-samples.
+            quota_options = ("--tips", "4", "--length", "2", "--seqtype", "DNA", "--model", "JC",
+                             "--samples", "5", "--seed", "1", "--branch-mean", "0.5", "--max-attempts", "1",
+                             "--require-distinct-gapped=false", "--require-unique-window", "--ensure-samples")
+            quotas = []
+            for jobs in [1, 3]:
+                out = root / f"quota_{jobs}"
+                run(out, *quota_options, "--jobs", str(jobs))
+                info = json.loads((out / "simulation_summary.json").read_text())
+                self.assertEqual(info["written_samples"], 5)
+                self.assertGreater(info["failed_window_samples"], 0)
+                quotas.append(snapshot(out))
+            self.assertEqual(*quotas)
+
+    def test_empirical_gamma_presets_replay_and_workers(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            options = ("--preset", "python", "--samples", "5", "--tips", "8",
+                       "--length", "80", "--seed", "20261102", "--allow-duplicate-sequences")
+            baseline = root / "baseline"
+            run(baseline, *options, "--alisim-log", str(root / "baseline.log"))
+            summary = json.loads((baseline / "simulation_summary.json").read_text())
+            self.assertEqual(summary["msa_policy"]["gamma"], "G8")
+            self.assertIn("--gamma=G8", summary["resolved_arguments"])
+            self.assertEqual(summary["msa_policy"]["empirical_gamma"]["source_sha256"],
+                             "1527b12722751a395ee9483ee15af2f92715a25dc2560011e47d269090355ccb")
+            for name, extra in [("parallel", ("--jobs", "3")),
+                                ("explicit", ("--model", "LG", "--gamma", "G8"))]:
+                output = root / name
+                run(output, *options, *extra)
+                for path in baseline.rglob("*"):
+                    if path.is_file() and path.name != "simulation_summary.json":
+                        self.assertEqual(path.read_bytes(), (output / path.relative_to(baseline)).read_bytes())
+            # Exercise the recorded command: its explicit --model must not cancel G8.
+            command = summary["reproduce_command"] + '\nprintf "REPLAY=%s\\n" "$replay_dir"'
+            result = subprocess.run(["bash", "-c", command], capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            replay = Path(re.search(r"REPLAY=(.+)", result.stdout).group(1))
+            try:
+                for path in baseline.rglob("*.fa"):
+                    self.assertEqual(path.read_bytes(), (replay / "data" / path.relative_to(baseline)).read_bytes())
+            finally:
+                import shutil
+                shutil.rmtree(replay)
+            continuous = root / "continuous"
+            run(continuous, *options, "--gamma", "GC")
+            continuous_summary = json.loads((continuous / "simulation_summary.json").read_text())
+            self.assertEqual(continuous_summary["msa_policy"]["gamma"], "GC")
+            for path in (continuous / "metadata").glob("*.json"):
+                self.assertTrue(json.loads(path.read_text())["model"].startswith("LG+GC{"))
+            for name, extra in [("off", ("--gamma", "none")),
+                                ("override", ("--model", "LG+G4{0.5}")),
+                                ("bare", ("--model", "LG"))]:
+                output = root / name
+                run(output, *options, *extra)
+                metadata = json.loads((output / "simulation_summary.json").read_text())
+                self.assertEqual(metadata["msa_policy"]["gamma"], "none")
+
+    def test_empirical_gamma_retries_and_validation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            log = root / "attempts.log"
+            run(root / "retries", "--gamma", "G8", "--seqtype", "DNA", "--model", "JC",
+                "--tips", "5", "--length", "1", "--samples", "2", "--seed", "42",
+                "--max-attempts", "3", "--alisim-log", str(log))
+            # Five DNA tips and one site guarantee duplicates on every attempt.
+            models = re.findall(r"Sample sample_\d+, attempt \d+/3, seed \d+, model (JC\+G8\{[^}]+\})", log.read_text())
+            self.assertEqual(len(models), 6)
+            self.assertEqual(len(set(models)), 6)
+            for gamma in ["G0", "G", "invalid"]:
+                run(root / gamma, "--gamma", gamma, success=False)
+            result = run(root / "conflict", "--gamma", "GC", "--model", "LG+G4{0.5}", success=False)
+            self.assertIn("existing +G/+R", result.stderr)
+            self.assertFalse((root / "conflict").exists())
+
+    def test_ensure_samples_replaces_failures_without_extra_outputs(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="pf ensure samples ") as directory:
+            root = Path(directory)
+            # Candidate zero fails with this seed; later trees can succeed.
+            options = ("--samples", "8", "--tips", "4", "--length", "2",
+                       "--branch-mean", "0.5", "--seqtype", "DNA", "--model", "JC",
+                       "--seed", "1", "--max-attempts", "1")
+            expected = None
+            completed = None
+            for jobs in (1, 2, 4):
+                output, log = root / f"jobs_{jobs}", root / f"jobs_{jobs}.log"
+                result = run(output, *options, "--jobs", str(jobs), "--ensure-samples",
+                             "--alisim-log", str(log))
+                self.assertEqual(result.stderr.count("significantly increase runtime"), 1)
+                summary = json.loads((output / "simulation_summary.json").read_text())
+                self.assertEqual(summary["status"], "completed")
+                self.assertTrue(summary["ensure_samples"])
+                self.assertEqual(summary["sample_count_mode"], "successful_outputs")
+                self.assertEqual(summary["requested_samples"], 8)
+                self.assertEqual(summary["written_samples"], 8)
+                self.assertGreater(summary["failed_duplicate_samples"], 0)
+                total = summary["completed_samples"]
+                self.assertEqual(total, 8 + summary["failed_duplicate_samples"])
+                self.assertEqual(summary["failed_duplicate_percentage_denominator"], "completed_samples")
+                self.assertAlmostEqual(summary["failed_duplicate_percentage"],
+                                       100 * summary["failed_duplicate_samples"] / total)
+                self.assertIn("--ensure-samples", summary["reproduce_command"])
+                self.assertEqual(log.read_text().count("[Alignment Simulator] Executing"), total)
+                self.assertEqual(log.read_text().count("Skipped sample:"), total - 8)
+                self.assertEqual(list(root.glob(f"{log.name}.worker-*")), [])
+                trees = sorted((output / "trees").glob("*.nwk"))
+                msas = sorted((output / "msa_untrimmed").glob("*.fa"))
+                self.assertEqual(len(trees), 8)
+                self.assertEqual(len(msas), 8)
+                self.assertEqual({p.stem for p in trees}, {p.stem for p in msas})
+                self.assertFalse((output / "trees" / "sample_000000.nwk").exists())
+                self.assertEqual(msas[-1].stem, f"sample_{total - 1:06}")
+                for path in msas:
+                    rows = fasta(path)
+                    self.assertEqual(len(set(rows.values())), 4)
+                files = {p.relative_to(output): p.read_bytes() for p in output.rglob("*")
+                         if p.is_file() and p.name != "simulation_summary.json"}
+                if expected is None:
+                    expected, completed = files, total
+                self.assertEqual(files, expected)
+                self.assertEqual(total, completed)
+
+            # The enforced dataset is exactly the accepted prefix of the same
+            # candidate stream, including fresh trees beyond the original quota.
+            reference = root / "bounded_reference"
+            run(reference, *options[2:], "--samples", str(completed))
+            self.assertEqual({p.relative_to(reference): p.read_bytes() for p in reference.rglob("*")
+                              if p.is_file() and p.name != "simulation_summary.json"}, expected)
+
+            # Increasing the output target preserves all previous accepted files.
+            larger = root / "larger"
+            run(larger, *options[2:], "--samples", "10", "--jobs", "4", "--ensure-samples")
+            self.assertEqual(len(list((larger / "msa_untrimmed").glob("*.fa"))), 10)
+            for path, content in expected.items():
+                self.assertEqual((larger / path).read_bytes(), content)
+
+    def test_ensure_samples_bypass_and_fatal_errors(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            # Impossible uniqueness is harmless when duplicate checking is bypassed.
+            output = root / "bypass"
+            run(output, "--samples", "3", "--jobs", "4", "--ensure-samples",
+                "--allow-duplicate-sequences", "--tips", "5", "--length", "1",
+                "--seqtype", "DNA", "--model", "JC", "--seed", "1")
+            summary = json.loads((output / "simulation_summary.json").read_text())
+            self.assertEqual(summary["written_samples"], 3)
+            self.assertEqual(summary["completed_samples"], 3)
+            self.assertEqual(summary["failed_duplicate_samples"], 0)
+
+            output = root / "fatal"
+            run(output, "--samples", "3", "--jobs", "2", "--ensure-samples",
+                "--model", "NOT_A_REAL_MODEL", success=False)
+            summary = json.loads((output / "simulation_summary.json").read_text())
+            self.assertEqual(summary["status"], "failed")
+            self.assertEqual(summary["completed_samples"], 0)
+            self.assertEqual(summary["failed_duplicate_percentage"], 0)
+            self.assertIn("Worker", summary["error"])
+
     def test_generated_seed_summary_and_executable_replay_command(self) -> None:
         with tempfile.TemporaryDirectory(prefix="pf summary ' ") as directory:
             root = Path(directory)
@@ -119,23 +403,31 @@ class SimulationTests(unittest.TestCase):
 
                 # Actually execute the saved Bash, from another cwd, with quoted
                 # filenames and a redirected log. Replays get fresh directories.
-                before = set(root.iterdir())
-                replay = subprocess.run(["bash", "-c", summary["reproduce_command"]],
+                # Read the directory from the shell: mktemp implementations and
+                # shell environments need not place it under our supplied TMPDIR.
+                # Use && so printing the path cannot hide a failed replay.
+                command = summary["reproduce_command"] + ' && printf "\nREPLAY=%s\n" "$replay_dir"'
+                replay = subprocess.run(["bash", "-c", command],
                                         capture_output=True, text=True, timeout=30, cwd="/",
                                         env={**os.environ, "TMPDIR": str(root)})
                 self.assertEqual(replay.returncode, 0, replay.stdout + replay.stderr)
-                created = set(root.iterdir()) - before
-                self.assertEqual(len(created), 1)
-                reproduced = created.pop() / "data"
-                replay_summary = json.loads((reproduced / "simulation_summary.json").read_text())
-                self.assertEqual(replay_summary["seed"], summary["seed"])
-                self.assertEqual(replay_summary["seed_source"], "provided")
-                self.assertEqual(replay_summary["failed_duplicate_samples"], summary["failed_duplicate_samples"])
-                original_files = {p.relative_to(output): p.read_bytes() for p in output.rglob("*")
-                                  if p.is_file() and p.name != "simulation_summary.json"}
-                replay_files = {p.relative_to(reproduced): p.read_bytes() for p in reproduced.rglob("*")
-                                if p.is_file() and p.name != "simulation_summary.json"}
-                self.assertEqual(original_files, replay_files)
+                marker = re.search(r"^REPLAY=(.+)$", replay.stdout, re.MULTILINE)
+                self.assertIsNotNone(marker, replay.stdout + replay.stderr)
+                replay_parent = Path(marker.group(1))
+                try:
+                    reproduced = replay_parent / "data"
+                    replay_summary = json.loads((reproduced / "simulation_summary.json").read_text())
+                    self.assertEqual(replay_summary["seed"], summary["seed"])
+                    self.assertEqual(replay_summary["seed_source"], "provided")
+                    self.assertEqual(replay_summary["failed_duplicate_samples"], summary["failed_duplicate_samples"])
+                    original_files = {p.relative_to(output): p.read_bytes() for p in output.rglob("*")
+                                      if p.is_file() and p.name != "simulation_summary.json"}
+                    replay_files = {p.relative_to(reproduced): p.read_bytes() for p in reproduced.rglob("*")
+                                    if p.is_file() and p.name != "simulation_summary.json"}
+                    self.assertEqual(original_files, replay_files)
+                finally:
+                    import shutil
+                    shutil.rmtree(replay_parent)
 
     def test_explicit_seed_boundaries_and_zero_failure_summary(self) -> None:
         with tempfile.TemporaryDirectory(prefix="pf explicit seed ") as directory:
@@ -165,6 +457,9 @@ class SimulationTests(unittest.TestCase):
         cases = [
             ("protein", ("--tips", "20", "--length", "100", "--model", "LG+G4{0.5}")),
             ("python", ("--tips", "20", "--length", "100", "--preset", "python")),
+            ("empirical_indels", ("--tips", "20", "--length", "100", "--model", "LG",
+                                  "--gamma", "G8", "--indel", "0.01,0.01",
+                                  "--indel-size", "POW{1.7/100},POW{1.7/100}")),
             ("indels", ("--tips", "20", "--length", "100", "--indel", "0.02,0.01",
                         "--indel-size", "GEO{2},GEO{3}")),
             ("mixed", ("--tips", "4", "--length", "2", "--branch-mean", "0.5",
@@ -214,7 +509,7 @@ class SimulationTests(unittest.TestCase):
             self.assertNotIn("Wrote", result.stdout)
             self.assertNotIn("Sample sample_000002", log.read_text())
             self.assertEqual(list(root.glob(f"{log.name}.worker-*")), [])
-            self.assertEqual(list((output / "sequences").iterdir()), [])
+            self.assertEqual(list((output / "msa_untrimmed").iterdir()), [])
             summary = json.loads((output / "simulation_summary.json").read_text())
             self.assertEqual(summary["status"], "failed")
             self.assertIn("Worker", summary["error"])
@@ -247,7 +542,11 @@ class SimulationTests(unittest.TestCase):
         self.assertIn("--gamma-shape", detailed)
         self.assertIn("--python-bd", detailed)
         self.assertIn("--preset python", detailed)
+        self.assertIn("--ensure-samples", detailed)
+        self.assertIn("significantly increase runtime", detailed)
         self.assertIn("Tree priors:", detailed)
+        self.assertIn("Default: G8", detailed)
+        self.assertIn("GC (continuous Gamma) can be much slower than G8", detailed)
         self.assertLess(len(short.splitlines()), 25)
 
     def test_presets_preserve_tree_and_alignment_outputs(self) -> None:
@@ -280,12 +579,12 @@ class SimulationTests(unittest.TestCase):
             run(second, *options)
             trees = sorted((first / "trees").glob("*.nwk"))
             self.assertEqual(len(trees), 3)
-            self.assertEqual(len(list((first / "sequences").iterdir())), 3)
-            self.assertFalse((first / "unaligned_sequences").exists())
+            self.assertEqual(len(list((first / "msa_untrimmed").iterdir())), 3)
+            self.assertFalse((first / "unaligned").exists())
 
             for tree in trees:
                 paths = tree_paths(tree)
-                sequences = fasta(first / "sequences" / f"{tree.stem}.fa")
+                sequences = fasta(first / "msa_untrimmed" / f"{tree.stem}.fa")
                 self.assertEqual(set(paths), {f"T{i}" for i in range(1, 9)})
                 self.assertEqual(set(paths), set(sequences))
                 self.assertEqual({len(seq) for seq in sequences.values()}, {120})
@@ -298,7 +597,7 @@ class SimulationTests(unittest.TestCase):
             # Increasing sample count must preserve the previous prefix.
             prefix = Path(directory) / "prefix"
             run(prefix, "--samples", "1", *options[2:])
-            for folder, suffix in (("trees", ".nwk"), ("sequences", ".fa")):
+            for folder, suffix in (("trees", ".nwk"), ("msa_untrimmed", ".fa")):
                 filename = Path(folder) / f"sample_000000{suffix}"
                 self.assertEqual((prefix / filename).read_bytes(), (first / filename).read_bytes())
 
@@ -308,7 +607,7 @@ class SimulationTests(unittest.TestCase):
             run(output, "--tips", "4", "--length", "50000", "--model", "JC",
                 "--seqtype", "DNA", "--seed", "99")
             paths = tree_paths(output / "trees" / "sample_000000.nwk")
-            sequences = fasta(output / "sequences" / "sample_000000.fa")
+            sequences = fasta(output / "msa_untrimmed" / "sample_000000.fa")
             names = sorted(paths)
             for i, a in enumerate(names):
                 for b in names[i + 1:]:
@@ -364,8 +663,8 @@ class SimulationTests(unittest.TestCase):
             # Logging must not create a file where a tree or MSA will be written.
             conflict = root / "conflict"
             run(conflict, *options, "--alisim-log",
-                str(conflict / "sequences" / "sample_000000.fa"), success=False)
-            self.assertFalse((conflict / "sequences" / "sample_000000.fa").exists())
+                str(conflict / "msa_untrimmed" / "sample_000000.fa"), success=False)
+            self.assertFalse((conflict / "msa_untrimmed" / "sample_000000.fa").exists())
 
             # Native errors still reach stderr when informational output is hidden.
             result = run(root / "invalid_model", "--model", "INVALID_MODEL", success=False)
@@ -385,21 +684,21 @@ class SimulationTests(unittest.TestCase):
                                "--branch-mean", "0.3", "--seed", "42",
                                "--seqtype", seqtype, "--model", model,
                                "--indel", "0.1,0.05", "--indel-size", "GEO{2},GEO{3}")
-                    result = run(first, *options)
+                    result = run(first, *options, "--materialize", "unaligned")
                     self.assertNotIn("[Alignment Simulator]", result.stdout + result.stderr)
-                    run(repeat, *options)
+                    run(repeat, *options, "--materialize", "unaligned")
                     run(aligned_only, *options, "--no-unaligned")
 
-                    self.assertEqual(len(list((first / "sequences").iterdir())), 2)
-                    self.assertEqual({path.name for path in (first / "sequences").iterdir()},
-                                     {path.name for path in (first / "unaligned_sequences").iterdir()})
-                    self.assertEqual(len(list((aligned_only / "sequences").iterdir())), 2)
-                    self.assertFalse((aligned_only / "unaligned_sequences").exists())
+                    self.assertEqual(len(list((first / "msa_untrimmed").iterdir())), 2)
+                    self.assertEqual({path.name for path in (first / "msa_untrimmed").iterdir()},
+                                     {path.name for path in (first / "unaligned").iterdir()})
+                    self.assertEqual(len(list((aligned_only / "msa_untrimmed").iterdir())), 2)
+                    self.assertFalse((aligned_only / "unaligned").exists())
                     for tree in (first / "trees").glob("*.nwk"):
                         paths = tree_paths(tree)
-                        aligned_path = Path("sequences") / f"{tree.stem}.fa"
+                        aligned_path = Path("msa_untrimmed") / f"{tree.stem}.fa"
                         aligned = fasta(first / aligned_path)
-                        unaligned = fasta(first / "unaligned_sequences" / f"{tree.stem}.fa")
+                        unaligned = fasta(first / "unaligned" / f"{tree.stem}.fa")
                         self.assertEqual(set(paths), set(aligned))
                         self.assertEqual(set(paths), set(unaligned))
                         self.assertEqual(len({len(seq) for seq in aligned.values()}), 1)
@@ -436,12 +735,12 @@ class SimulationTests(unittest.TestCase):
             for name, flags in variants.items():
                 out = root / name
                 run(out, "--tips", "6", "--length", "100", "--allow-duplicate-sequences", *flags)
-                sequences = fasta(out / "sequences" / "sample_000000.fa")
+                sequences = fasta(out / "msa_untrimmed" / "sample_000000.fa")
                 self.assertEqual(len(sequences), 6)
                 self.assertEqual(set(sequences), {f"T{i}" for i in range(1, 7)})
             run(root / "trees_only", "--samples", "3", "--tips", "20", "--python-bd", "--trees-only")
             self.assertEqual(len(list((root / "trees_only" / "trees").glob("*.nwk"))), 3)
-            self.assertEqual(list((root / "trees_only" / "sequences").iterdir()), [])
+            self.assertEqual(list((root / "trees_only" / "msa_untrimmed").iterdir()), [])
             run(root / "conflict", "--python-bd", "--tree-prior", "ete3", success=False)
             run(root / "bad_gamma", "--branch-prior", "gamma", "--gamma-shape", "-1", success=False)
 
@@ -461,8 +760,8 @@ class SimulationTests(unittest.TestCase):
             self.assertEqual(log.read_text().count("Skipped sample:"), 3)
             self.assertIn("No duplicate-free MSA for sample_000002 after 3 attempts", log.read_text())
             self.assertEqual(list((failed / "trees").iterdir()), [])
-            self.assertEqual(list((failed / "sequences").iterdir()), [])
-            self.assertFalse((failed / "unaligned_sequences").exists())
+            self.assertEqual(list((failed / "msa_untrimmed").iterdir()), [])
+            self.assertFalse((failed / "unaligned").exists())
             summary = json.loads((failed / "simulation_summary.json").read_text())
             self.assertEqual(summary["status"], "completed")
             self.assertEqual(summary["written_samples"], 0)
@@ -473,7 +772,7 @@ class SimulationTests(unittest.TestCase):
             run(allowed, *impossible, "--max-attempts", "3", "--allow-duplicate-sequences",
                 "--alisim-log", str(allowed_log))
             self.assertEqual(allowed_log.read_text().count("[Alignment Simulator] Executing"), 1)
-            sequences = fasta(allowed / "sequences" / "sample_000000.fa")
+            sequences = fasta(allowed / "msa_untrimmed" / "sample_000000.fa")
             self.assertLess(len(set(sequences.values())), len(sequences))
 
     def test_retries_resimulate_a_fixed_tree_and_are_reproducible(self) -> None:
@@ -484,7 +783,7 @@ class SimulationTests(unittest.TestCase):
                        "--seqtype", "DNA", "--model", "JC", "--seed", "1")
             one_attempt = run(root / "one_attempt", *options, "--max-attempts", "1")
             self.assertIn("1 failed due to duplicate sequences; 1 requested", one_attempt.stdout)
-            self.assertEqual(list((root / "one_attempt" / "sequences").iterdir()), [])
+            self.assertEqual(list((root / "one_attempt" / "msa_untrimmed").iterdir()), [])
             accepted, log = root / "accepted", root / "attempts.log"
             run(accepted, *options, "--max-attempts", "20", "--alisim-log", str(log))
             content = log.read_text()
@@ -494,9 +793,9 @@ class SimulationTests(unittest.TestCase):
             self.assertEqual(content.count("Rejected alignment:"), count - 1)
             seeds = re.findall(r"attempt \d+/\d+, seed (\d+)", content)
             self.assertEqual(len(set(seeds)), count)
-            sequences = fasta(accepted / "sequences" / "sample_000000.fa")
+            sequences = fasta(accepted / "msa_untrimmed" / "sample_000000.fa")
             self.assertEqual(len(set(sequences.values())), len(sequences))
-            self.assertEqual(len(list((accepted / "sequences").iterdir())), 1)
+            self.assertEqual(len(list((accepted / "msa_untrimmed").iterdir())), 1)
 
             # Exactly enough attempts succeeds; one fewer skips this sample.
             short_limit = run(root / "short_limit", *options, "--max-attempts", str(count - 1))
@@ -505,7 +804,7 @@ class SimulationTests(unittest.TestCase):
             run(repeat, *options, "--max-attempts", str(count))
             first = root / "first"
             run(first, *options, "--allow-duplicate-sequences")
-            for folder, extension in (("trees", "nwk"), ("sequences", "fa")):
+            for folder, extension in (("trees", "nwk"), ("msa_untrimmed", "fa")):
                 relative = Path(folder) / f"sample_000000.{extension}"
                 self.assertEqual((accepted / relative).read_bytes(), (repeat / relative).read_bytes())
             self.assertEqual((accepted / "trees" / "sample_000000.nwk").read_bytes(),
@@ -523,14 +822,14 @@ class SimulationTests(unittest.TestCase):
             accepted, failed = 0, 0
             for sample in range(12):
                 name = f"sample_{sample:06}"
-                sequences = fasta(reference / "sequences" / f"{name}.fa")
+                sequences = fasta(reference / "msa_untrimmed" / f"{name}.fa")
                 if len(set(sequences.values())) < len(sequences):
                     failed += 1
                     self.assertFalse((mixed / "trees" / f"{name}.nwk").exists())
-                    self.assertFalse((mixed / "sequences" / f"{name}.fa").exists())
+                    self.assertFalse((mixed / "msa_untrimmed" / f"{name}.fa").exists())
                 else:
                     accepted += 1
-                    for folder, suffix in (("trees", "nwk"), ("sequences", "fa")):
+                    for folder, suffix in (("trees", "nwk"), ("msa_untrimmed", "fa")):
                         relative = Path(folder) / f"{name}.{suffix}"
                         self.assertEqual((mixed / relative).read_bytes(), (reference / relative).read_bytes())
             self.assertGreater(accepted, 0)
@@ -542,7 +841,7 @@ class SimulationTests(unittest.TestCase):
             self.assertEqual(summary["failed_duplicate_samples"], failed)
             self.assertAlmostEqual(summary["failed_duplicate_percentage"], 100 * failed / 12)
             self.assertEqual(len(list((mixed / "trees").iterdir())), accepted)
-            self.assertEqual(len(list((mixed / "sequences").iterdir())), accepted)
+            self.assertEqual(len(list((mixed / "msa_untrimmed").iterdir())), accepted)
 
     def test_non_duplicate_simulation_errors_still_stop_the_run(self) -> None:
         with tempfile.TemporaryDirectory(prefix="pf fatal error ") as directory:
@@ -555,7 +854,7 @@ class SimulationTests(unittest.TestCase):
             self.assertNotIn("Sample sample_000001", log.read_text())
             self.assertNotIn("Skipped sample:", log.read_text())
             self.assertEqual(list((output / "trees").iterdir()), [])
-            self.assertEqual(list((output / "sequences").iterdir()), [])
+            self.assertEqual(list((output / "msa_untrimmed").iterdir()), [])
             # IQ-TREE exits the process here, so the initial record survives
             # without inventing a completed wall-time measurement.
             summary = json.loads((output / "simulation_summary.json").read_text())

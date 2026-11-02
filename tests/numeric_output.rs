@@ -41,6 +41,7 @@ fn numeric_output_matches_reference_fasta_sequences() {
                     indel: indels.then(|| "0.1,0.05".into()),
                     indel_size: indels.then(|| "GEO{2},GEO{3}".into()),
                     no_unaligned: false,
+                    ancestral: false,
                 };
                 let fasta =
                     simulate_alignment_in_memory(&tree, &prefix, &config, seed, None).unwrap();

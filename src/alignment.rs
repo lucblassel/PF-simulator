@@ -34,6 +34,7 @@ unsafe extern "C" {
         indel: *const c_char,
         indel_size: *const c_char,
         no_unaligned: c_int,
+        ancestral: c_int,
         log_path: *const c_char,
         output_mode: c_int,
         callback: unsafe extern "C" fn(*const u8, usize, c_int, *mut c_void) -> c_int,
@@ -58,7 +59,7 @@ impl SequenceType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct AlignmentConfig {
     pub length: u32,
     pub model: String,
@@ -69,6 +70,8 @@ pub struct AlignmentConfig {
     pub indel_size: Option<String>,
     /// Suppress AliSim's additional `.unaligned.fa` output.
     pub no_unaligned: bool,
+    /// Include simulated ancestral sequences in the shared alignment coordinates.
+    pub ancestral: bool,
 }
 
 impl Default for AlignmentConfig {
@@ -80,6 +83,7 @@ impl Default for AlignmentConfig {
             indel: None,
             indel_size: None,
             no_unaligned: false,
+            ancestral: false,
         }
     }
 }
@@ -155,12 +159,25 @@ impl RawAlignment {
         self.rows.iter().any(|row| !seen.insert(row.as_slice()))
     }
 
+    /// Format a column interval without changing full-alignment coordinates.
+    pub fn window_fasta(&self, start: usize, end: usize) -> Vec<u8> {
+        self.format_fasta(false, Some(start..end))
+    }
+
     pub fn to_fasta(&self, gap_free: bool) -> Vec<u8> {
+        self.format_fasta(gap_free, None)
+    }
+
+    fn format_fasta(&self, gap_free: bool, window: Option<std::ops::Range<usize>>) -> Vec<u8> {
         let mut result = Vec::new();
         for (name, row) in self.names.iter().zip(&self.rows) {
             result.push(b'>');
             result.extend_from_slice(name.as_bytes());
             result.push(b'\n');
+            let row = match &window {
+                Some(range) => &row[range.clone()],
+                None => row.as_slice(),
+            };
             result.extend(
                 row.iter()
                     .map(|&code| self.alphabet[code as usize])
@@ -389,6 +406,7 @@ fn simulate_output(
                 .as_ref()
                 .map_or(std::ptr::null(), |value| value.as_ptr()),
             c_int::from(config.no_unaligned),
+            c_int::from(config.ancestral),
             log.as_ref().map_or(std::ptr::null(), |path| path.as_ptr()),
             output_mode,
             collect_output,

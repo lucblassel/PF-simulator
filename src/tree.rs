@@ -108,6 +108,28 @@ impl Tree {
         }
         Ok(Self { inner, tips, edges })
     }
+    /// Export the same internal labels used by the direct native tree adapter.
+    pub fn newick_with_internal_names(&self) -> Result<String, String> {
+        let mut tree = self.inner.clone();
+        let root = tree.root().map_err(|e| e.to_string())?;
+        let mut next = self.tips + 1;
+        for id in preorder(&tree)? {
+            if !tree.get(id).map_err(|e| e.to_string())?.children.is_empty() {
+                let label = if id == root {
+                    self.tips
+                } else {
+                    let label = next;
+                    next += 1;
+                    label
+                };
+                tree.get_mut(id).map_err(|e| e.to_string())?.name = Some(format!("I_{label}"));
+            }
+        }
+        tree.to_newick()
+            .map(|text| format!("{text}\n"))
+            .map_err(|e| e.to_string())
+    }
+
     pub fn newick(&self) -> String {
         format!(
             "{}\n",

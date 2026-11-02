@@ -58,7 +58,7 @@ struct RandomStreams {
 
 void simulate(const char* tree_file, const char* output_prefix, const char* model,
               const char* sequence_type, int length, int seed,
-              const char* indel, const char* indel_size, bool no_unaligned,
+              const char* indel, const char* indel_size, bool no_unaligned, bool ancestral,
               pf_alisim_output callback, void* context) {
     // Params borrows these strings; retain storage until the next call.
     // The Rust wrapper serializes all calls.
@@ -77,6 +77,7 @@ void simulate(const char* tree_file, const char* output_prefix, const char* mode
         arguments.emplace_back(indel_size);
     }
     if (no_unaligned) arguments.emplace_back("--no-unaligned");
+    if (ancestral) arguments.emplace_back("--write-all");
 
     std::vector<char*> argv;
     for (auto& argument : arguments) argv.push_back(argument.data());
@@ -85,6 +86,7 @@ void simulate(const char* tree_file, const char* output_prefix, const char* mode
 
     auto& params = Params::getInstance();
     parseArg(argc, argv.data(), params);
+    params.alisim_write_internal_sequences = ancestral;
     params.SSE = LK_386;
     params.suppress_output_flags |= OUT_LOG;
     static const bool initialized = [] {
@@ -135,7 +137,7 @@ extern "C" int pf_alisim_simulate(const char* tree_file, const pf_tree_edge* edg
                                  size_t edge_count, uint32_t tips, const char* output_prefix,
                                  const char* model, const char* sequence_type,
                                  int32_t length, int32_t seed,
-                                 const char* indel, const char* indel_size, int no_unaligned,
+                                 const char* indel, const char* indel_size, int no_unaligned, int ancestral,
                                  const char* log_path, int output_mode,
                                  pf_alisim_output callback, void* context,
                                  char* error, size_t error_capacity) {
@@ -158,7 +160,7 @@ extern "C" int pf_alisim_simulate(const char* tree_file, const pf_tree_edge* edg
         pf::RawSession raw(output_mode == 1);
         pf::TreeSession input_tree(edges, edge_count, tips);
         simulate(tree_file, output_prefix, model, sequence_type, length, seed,
-                 indel, indel_size, no_unaligned != 0, callback, context);
+                 indel, indel_size, no_unaligned != 0, ancestral != 0, callback, context);
         output.finish();
         return 0;
     } catch (const std::exception& exception) {

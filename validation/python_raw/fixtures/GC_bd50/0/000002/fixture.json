@@ -1,0 +1,9 @@
+{
+  "sample": 2,
+  "model": "LG+GC{0.925317724780286}",
+  "alpha": 0.925317724780286,
+  "seed": 598538550,
+  "alpha_seed": 330920762,
+  "length": 200,
+  "command": null
+}

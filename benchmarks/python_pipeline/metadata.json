@@ -1,0 +1,130 @@
+{
+  "started_utc": "2026-11-02T13:26:14.987358+00:00",
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "logical_cpus": 10,
+  "python": "3.12.7",
+  "repeats": 3,
+  "cases": [
+    [
+      "pipeline_50",
+      128,
+      50,
+      500
+    ],
+    [
+      "pipeline_200",
+      32,
+      200,
+      5000
+    ]
+  ],
+  "jobs": [
+    1,
+    4,
+    8
+  ],
+  "settings": [
+    [
+      "rust",
+      1
+    ],
+    [
+      "python",
+      1
+    ],
+    [
+      "rust",
+      4
+    ],
+    [
+      "python",
+      4
+    ],
+    [
+      "rust",
+      8
+    ],
+    [
+      "python",
+      8
+    ]
+  ],
+  "seed_base": 20261102,
+  "policy": {
+    "model": "LG",
+    "gamma": "empirical GC",
+    "indel": "0.002,0.002",
+    "indel_size": "POW{1.7/100},POW{1.7/100}",
+    "ancestral": true,
+    "gapped_check": true,
+    "ungapped_check": false,
+    "window_check": true,
+    "window_policy": "python",
+    "max_attempts": 1,
+    "ensure_samples": false,
+    "materialize": "all"
+  },
+  "binaries": {
+    "/Users/lucblassel/Work/PF-simulator/target/release/pf-sim": "6ecf87fc8a57ab21c0faaa74d700c39da7d7afa28e933645b61b16f0be182edd",
+    "/Users/lucblassel/Work/PF-simulator/target/alisim-reference/build/iqtree/iqtree2": "bccb0b9be88e60f5d5e9e66837aaace20d265eb714c64251d66af8e30f12ef8f"
+  },
+  "sources": {
+    "/Users/lucblassel/Work/PF-simulator/benchmarks/benchmark_python_pipeline.py": "b7708399a8d121474a9d2ad661125a815ad7e4e2a4eaec6f0f2ca659172b28a4",
+    "/Users/lucblassel/Work/PF-simulator/benchmarks/benchmark_python.py": "59ddb40a129140edce381e9e479ed22504e93ef0c8c509dd264bca4dbb419410",
+    "/Users/lucblassel/Work/bayesnj_simulation/scripts/alisim.py": "dd4a2bf98e33c51d4aa8a85f9a00d0b9451c4ece274f48201955492e42c234e0",
+    "/Users/lucblassel/Work/bayesnj_simulation/scripts/find_unduplicated.py": "6a3f9611bcedb2f4c9752ce0932e902f41e25bc0939a6f8690fa26fac77f55af",
+    "/Users/lucblassel/Work/bayesnj_simulation/scripts/SimulateAlterRescale.py": "b8e52d6b4c2fa8f5b9b6e43312f0f480f34e552ab8bdf77e2904bab0f68897b7",
+    "/Users/lucblassel/Work/bayesnj_simulation/scripts/hogenom_alphas.txt": "1527b12722751a395ee9483ee15af2f92715a25dc2560011e47d269090355ccb",
+    "/Users/lucblassel/Work/bayesnj_simulation/scripts/hogenom_diams.txt": "5bc996f066a768604d233b6418d26518786f1b868d342b7bd34cb1af70c40749",
+    "/Users/lucblassel/Work/bayesnj_simulation/scripts/raxml_diams.txt": "7a976202685311c4b058d74e08683db859a7e0802f50d12611a17f3404ecdf58",
+    "src/alignment.rs": "fcaecc5a77df8f1e95de83774cdc5d33ea19038089c5e832d69bea1c572cf80d",
+    "src/error.rs": "e7a93ed65d7fe55c231530db92df9fee89e2848f9d993bfd64f241c8a80c83b4",
+    "src/lib.rs": "90a00aaf332d989b4cc378a62a7a36d099972452c3055b981c5c376c32b49601",
+    "src/main.rs": "70d3095584af3e675ed193c913f685c8949ef9710716ccdd0f4a1583acbf2c93",
+    "src/rng.rs": "2db7f9e66e189d0deed81b5aa82c7866cf152f0af9b2f5ba9507d8ce3cd572ee",
+    "src/run_summary.rs": "04c83aabe2d01a40db409e62c98db3401736e34213e64ff0782d51d580dd6fc7",
+    "src/selection.rs": "7d3d5203301500c40664368a7e4cfc1c0faf7092e1e03a9cb72b53a75f7dc243",
+    "src/site_rates.rs": "934e064ebae6a359b0adb1178d13cb574f44e3ffab647af45186371ad2294124",
+    "src/tree.rs": "576d4ae297ca3c8d27640378f6c28b164721455794b38d1b2252fb4f4ab3cc1f",
+    "src/tree_simulation.rs": "18ac504d8dd550c58263b143bc88c6bff29b461be0a30083ea414228ab4ad4d6",
+    "src/workers.rs": "9ece15922f4fde8ed641b291b33c748753d89fd86dfe9c181ae4cdc268e8827d",
+    "native/alisim_bridge.cpp": "8a275f68df3bf2c8fb0944e4abb6cbddfc221884c01d5e5304394ec627a6237d",
+    "native/alisim_bridge.h": "d02996f7f85ec1f4575349fd5e6b75c6fa5d9229d381d77130c850d1bb420d32",
+    "native/iqtree_sequential_compat.hpp": "d97e6131bde7ec4f6fedf206292458033cfd3aa0e7083d1deec7258f2640d344",
+    "native/memory_io.cmake": "b435607e78bdb4e6e47fd1277fd81177e216214f243fb10965cb2d940d3de421",
+    "native/memory_io.hpp": "86bc2a4d20f9e9bf942d2eda6bf5577676239eb549d95aadcb6e70d070b8efe7",
+    "native/numeric_output.hpp": "3492f1a8ec5399afd7b6cd8681640b4dd8a55deb6ea3b774976c91b1350cdba7",
+    "native/tree_input.hpp": "631510926bdcbc8e725d293dd2b5ee59e971a56e205672b59f437e1e41afda5a",
+    "Cargo.lock": "0a93c94af56711cc6c75e96fcdd2b88abf593075e7c255af99c920b593fbddb9",
+    "Cargo.toml": "0ef547d5e1cebc453162f492ac94e8c346e77e61e6166b0e3fc180ec22dddddc",
+    "build.rs": "55d2cc08cf4af44b0780bcedaaa0d84c73a7e022f0e973ff3f7312e4e34e63f9",
+    "CMakeLists.txt": "0386a3dc946c2ec0588f89f92f6f3a1dbb03ab22ffb83eb3196ba71dc5440372",
+    "data/empirical_gamma.tsv": "4899277e1cb44c21ace45b5b2679f48fede91c4a3a6470eee1002020427065cb",
+    "data/empirical_diameters.tsv": "5fc9c0b4e3c7057f57c6282f250ceb3d8856c96f3654ed16c51a7871eed716da",
+    "/Users/lucblassel/Development/rust/phylotree/src/bin/phylotree/cli.rs": "dab9aaa5a14363c751cae69951f34d34c84a00ce718570bb466edf43e56c041e",
+    "/Users/lucblassel/Development/rust/phylotree/src/bin/phylotree/main.rs": "fa5391635a9bf2defcb0c197fee74fed1fed9173ee145627c16ce6462bef9ba1",
+    "/Users/lucblassel/Development/rust/phylotree/src/bin/phylotree/newick_diagnostic.rs": "a19d350ba976d5a008ef0e08ad94da7e9cbf1aa57d3ac83c45dd3ae9ce204780",
+    "/Users/lucblassel/Development/rust/phylotree/src/distance.rs": "32c2811b6500d8a4baffcb9e3fb471c573622803c28b94d36d12dcb86556d6d2",
+    "/Users/lucblassel/Development/rust/phylotree/src/distr.rs": "2275aad6f7a2cd05431c82863f64fc2559ba943f8e08d568ac115facec2a3875",
+    "/Users/lucblassel/Development/rust/phylotree/src/errors.rs": "178fe8a68bf6e593f39fbed81e583c63bfae11ac06afc5b18d196094763c3b34",
+    "/Users/lucblassel/Development/rust/phylotree/src/lib.rs": "5ae4bbeed95e866d4d811f7d334d7e143bc71255f0123b32e392274cc8f64141",
+    "/Users/lucblassel/Development/rust/phylotree/src/python.rs": "2419385e589ab6aa6db47c841fae9dcc02bb4fe063c56265ef5f50e69d3d0689",
+    "/Users/lucblassel/Development/rust/phylotree/src/simulation.rs": "60f0e4be8575ff74bb4108855249207a79c1be1834e7070562722bbaeae9e563",
+    "/Users/lucblassel/Development/rust/phylotree/src/tree/bipartition.rs": "df31ef5c34fd8f3681433653b6b55adab06087a66ddf14cadc8a5fc09278f144",
+    "/Users/lucblassel/Development/rust/phylotree/src/tree/draw.rs": "f297c2afb0f36a970b9dbc9f1af425bd4008cc2db17babadb37ad459e65977d0",
+    "/Users/lucblassel/Development/rust/phylotree/src/tree/mod.rs": "3607f87b84688195431f36530cae363e27ad8d1b3aa4eb387762c6c89146eb62",
+    "/Users/lucblassel/Development/rust/phylotree/src/tree/newick/mod.rs": "4f02689fde4821682e1f32af680bef3c9cc7f0f85add885a9fad560a5a1eab77",
+    "/Users/lucblassel/Development/rust/phylotree/src/tree/newick/parser.rs": "fe9f9aa1617341982f93fe6c9c73563c58d092e6e164c97dc681d5b514ef76d1",
+    "/Users/lucblassel/Development/rust/phylotree/src/tree/newick/serializer.rs": "7c8463fbe53a23f546c52ed77ad663767b4e2d800b4e02e4b9f7bc65ba511585",
+    "/Users/lucblassel/Development/rust/phylotree/src/tree/newick/tokenizer.rs": "6d0292e41ed8261f905b0d77ee00529b8eb57ea2fd6b3bb5eaa60759a5824988",
+    "/Users/lucblassel/Development/rust/phylotree/src/tree/node.rs": "9035349a3869617af36573d69ebf08e0a2a3e4878665e20999c916d7d1d95c0e",
+    "/Users/lucblassel/Development/rust/phylotree/src/tree/taxon_index.rs": "5210b06f1ea1373f9462ffd317e24b8b02524304a310e08b951aabb7a17aec18",
+    "/Users/lucblassel/Development/rust/phylotree/src/tree/traversal.rs": "eec94dee23a1dcef97b19c77bffebcde24880dbf9d4116ef1124bd574cc52e09",
+    "/Users/lucblassel/Development/rust/phylotree/src/tree/tree_impl.rs": "911b2d9a0e0b66cd2dd4f99a4cd22cec74511a297b643a2f77b028d0f9dafe23",
+    "/Users/lucblassel/Development/rust/phylotree/src/tree/tree_list.rs": "78ce61f98a3ebf436d18420979013359904bd76664c07d899fd8e46a7a27130b"
+  },
+  "reference_version": "IQ-TREE multicore version 2.4.0 for MacOS ARM 64-bit built Nov  1 2026\nDeveloped by Bui Quang Minh, Nguyen Lam Tung, Olga Chernomor, Heiko Schmidt,\nDominik Schrempf, Michael Woodhams, Ly Trong Nhan, Thomas Wong",
+  "completed_utc": "2026-11-02T13:45:02.432942+00:00",
+  "iqtree_commit": "a00094e03d1ae984e1497e16738f91514df8c366",
+  "measured_sources_archive_sha256": "073df62b5661cf8360867d9b0701fb0fa84b2a90bf38b0c8a2ce84b1316c5591"
+}

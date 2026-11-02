@@ -75,7 +75,7 @@ inline void read_tree(IQTree& tree, const char* filename, bool& is_rooted) {
     std::vector<std::unique_ptr<Node>> nodes;
     nodes.reserve(input.neighbors.size());
     for (size_t i = 0; i < input.neighbors.size(); ++i) {
-        const auto name = i < input.tips ? "T" + std::to_string(i + 1) : "";
+        const auto name = i < input.tips ? "T" + std::to_string(i + 1) : "I_" + std::to_string(i);
         nodes.emplace_back(tree.newNode(-1, name.c_str()));
     }
 

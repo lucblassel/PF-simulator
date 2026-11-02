@@ -1,0 +1,12 @@
+{
+  "requested": 8,
+  "tips": 50,
+  "length": 500,
+  "seed": 20261102,
+  "written": 5,
+  "dataset_sha256": "8da56f7008092fcf5e446ca0b91c18d8df0204943a28e842117977fde762a3b3",
+  "identical_cli_outputs": true,
+  "note": "Post-measurement fix handles unnamed Newick-file ancestors; direct-tree CLI unchanged.",
+  "measured_binary_sha256": "6ecf87fc8a57ab21c0faaa74d700c39da7d7afa28e933645b61b16f0be182edd",
+  "updated_binary_sha256": "b2ad922b3cf9d76846c47cd8828efc0b47c7990e28a6cf50d31a25c5844081ee"
+}

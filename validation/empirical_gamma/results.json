@@ -1,0 +1,23 @@
+{
+  "count_per_backend": 20000,
+  "ks_d": 0.007000000000000006,
+  "threshold_at_0.01": 0.016276236307187292,
+  "p_upper": 0.7506221977027978,
+  "detected_difference": false,
+  "empirical_source_sha256": "1527b12722751a395ee9483ee15af2f92715a25dc2560011e47d269090355ccb",
+  "values_sha256": "6683cac6b11364056886f3f3ea243fa85148ea1db8559e86ccd76fa816eb4a77",
+  "python_script_sha256": "dd4a2bf98e33c51d4aa8a85f9a00d0b9451c4ece274f48201955492e42c234e0",
+  "sampler_sha256": "a1ff70c19152bcb8b12d07b03ff5b711ecf025219aa7e1d13ac1101cbea5a1b9",
+  "seeds": {
+    "rust": 42,
+    "python_random": 20261102,
+    "numpy": 20261103
+  },
+  "numpy_version": "2.4.1",
+  "floor_fraction": {
+    "python": 0.00175,
+    "rust": 0.00215
+  },
+  "sampling": "Uniform observation including multiplicity, Normal(a,a/10), floor at 0.05",
+  "bundle_matches_source_exactly": true
+}

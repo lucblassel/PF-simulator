@@ -1,0 +1,1448 @@
+[
+  {
+    "comparison": "lg_u10/standalone_240",
+    "metric": "aligned_length",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u10/standalone_240",
+    "metric": "gap_fraction",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u10/standalone_240",
+    "metric": "gapped_columns",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u10/standalone_240",
+    "metric": "max_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u10/standalone_240",
+    "metric": "mean_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u10/standalone_240",
+    "metric": "records",
+    "value": 10.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u10/standalone_240",
+    "metric": "tips",
+    "value": 10.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u10/standalone_240",
+    "metric": "ungapped_mean",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u10/standalone_240",
+    "metric": "ungapped_sd",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u10/standalone_2226",
+    "metric": "aligned_length",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u10/standalone_2226",
+    "metric": "gap_fraction",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u10/standalone_2226",
+    "metric": "gapped_columns",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u10/standalone_2226",
+    "metric": "max_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u10/standalone_2226",
+    "metric": "mean_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u10/standalone_2226",
+    "metric": "records",
+    "value": 10.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u10/standalone_2226",
+    "metric": "tips",
+    "value": 10.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u10/standalone_2226",
+    "metric": "ungapped_mean",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u10/standalone_2226",
+    "metric": "ungapped_sd",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_bd50/standalone_240",
+    "metric": "aligned_length",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_bd50/standalone_240",
+    "metric": "gap_fraction",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_bd50/standalone_240",
+    "metric": "gapped_columns",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_bd50/standalone_240",
+    "metric": "max_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_bd50/standalone_240",
+    "metric": "mean_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_bd50/standalone_240",
+    "metric": "records",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_bd50/standalone_240",
+    "metric": "tips",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_bd50/standalone_240",
+    "metric": "ungapped_mean",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_bd50/standalone_240",
+    "metric": "ungapped_sd",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_bd50/standalone_2226",
+    "metric": "aligned_length",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_bd50/standalone_2226",
+    "metric": "gap_fraction",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_bd50/standalone_2226",
+    "metric": "gapped_columns",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_bd50/standalone_2226",
+    "metric": "max_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_bd50/standalone_2226",
+    "metric": "mean_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_bd50/standalone_2226",
+    "metric": "records",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_bd50/standalone_2226",
+    "metric": "tips",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_bd50/standalone_2226",
+    "metric": "ungapped_mean",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_bd50/standalone_2226",
+    "metric": "ungapped_sd",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u200/standalone_240",
+    "metric": "aligned_length",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u200/standalone_240",
+    "metric": "complete_invariant_fraction",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u200/standalone_240",
+    "metric": "gap_fraction",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u200/standalone_240",
+    "metric": "gapped_columns",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u200/standalone_240",
+    "metric": "invariant_fraction",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u200/standalone_240",
+    "metric": "max_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u200/standalone_240",
+    "metric": "mean_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u200/standalone_240",
+    "metric": "records",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u200/standalone_240",
+    "metric": "tips",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u200/standalone_240",
+    "metric": "ungapped_mean",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u200/standalone_240",
+    "metric": "ungapped_sd",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u200/standalone_2226",
+    "metric": "aligned_length",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u200/standalone_2226",
+    "metric": "complete_invariant_fraction",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u200/standalone_2226",
+    "metric": "gap_fraction",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u200/standalone_2226",
+    "metric": "gapped_columns",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u200/standalone_2226",
+    "metric": "invariant_fraction",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u200/standalone_2226",
+    "metric": "max_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u200/standalone_2226",
+    "metric": "mean_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u200/standalone_2226",
+    "metric": "records",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u200/standalone_2226",
+    "metric": "tips",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u200/standalone_2226",
+    "metric": "ungapped_mean",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "lg_u200/standalone_2226",
+    "metric": "ungapped_sd",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "g8_bd50/standalone_240",
+    "metric": "aligned_length",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "g8_bd50/standalone_240",
+    "metric": "gap_fraction",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "g8_bd50/standalone_240",
+    "metric": "gapped_columns",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "g8_bd50/standalone_240",
+    "metric": "max_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "g8_bd50/standalone_240",
+    "metric": "mean_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "g8_bd50/standalone_240",
+    "metric": "records",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "g8_bd50/standalone_240",
+    "metric": "tips",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "g8_bd50/standalone_240",
+    "metric": "ungapped_mean",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "g8_bd50/standalone_240",
+    "metric": "ungapped_sd",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "g8_bd50/standalone_2226",
+    "metric": "aligned_length",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "g8_bd50/standalone_2226",
+    "metric": "gap_fraction",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "g8_bd50/standalone_2226",
+    "metric": "gapped_columns",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "g8_bd50/standalone_2226",
+    "metric": "max_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "g8_bd50/standalone_2226",
+    "metric": "mean_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "g8_bd50/standalone_2226",
+    "metric": "records",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "g8_bd50/standalone_2226",
+    "metric": "tips",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "g8_bd50/standalone_2226",
+    "metric": "ungapped_mean",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "g8_bd50/standalone_2226",
+    "metric": "ungapped_sd",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "gc_bd50/standalone_240",
+    "metric": "aligned_length",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "gc_bd50/standalone_240",
+    "metric": "gap_fraction",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "gc_bd50/standalone_240",
+    "metric": "gapped_columns",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "gc_bd50/standalone_240",
+    "metric": "max_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "gc_bd50/standalone_240",
+    "metric": "mean_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "gc_bd50/standalone_240",
+    "metric": "records",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "gc_bd50/standalone_240",
+    "metric": "tips",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "gc_bd50/standalone_240",
+    "metric": "ungapped_mean",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "gc_bd50/standalone_240",
+    "metric": "ungapped_sd",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "gc_bd50/standalone_2226",
+    "metric": "aligned_length",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "gc_bd50/standalone_2226",
+    "metric": "gap_fraction",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "gc_bd50/standalone_2226",
+    "metric": "gapped_columns",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "gc_bd50/standalone_2226",
+    "metric": "max_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "gc_bd50/standalone_2226",
+    "metric": "mean_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "gc_bd50/standalone_2226",
+    "metric": "records",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "gc_bd50/standalone_2226",
+    "metric": "tips",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "gc_bd50/standalone_2226",
+    "metric": "ungapped_mean",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "gc_bd50/standalone_2226",
+    "metric": "ungapped_sd",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "invariant_bd50/standalone_240",
+    "metric": "aligned_length",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "invariant_bd50/standalone_240",
+    "metric": "gap_fraction",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "invariant_bd50/standalone_240",
+    "metric": "gapped_columns",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "invariant_bd50/standalone_240",
+    "metric": "max_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "invariant_bd50/standalone_240",
+    "metric": "mean_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "invariant_bd50/standalone_240",
+    "metric": "records",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "invariant_bd50/standalone_240",
+    "metric": "tips",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "invariant_bd50/standalone_240",
+    "metric": "ungapped_mean",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "invariant_bd50/standalone_240",
+    "metric": "ungapped_sd",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "invariant_bd50/standalone_2226",
+    "metric": "aligned_length",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "invariant_bd50/standalone_2226",
+    "metric": "gap_fraction",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "invariant_bd50/standalone_2226",
+    "metric": "gapped_columns",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "invariant_bd50/standalone_2226",
+    "metric": "max_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "invariant_bd50/standalone_2226",
+    "metric": "mean_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "invariant_bd50/standalone_2226",
+    "metric": "records",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "invariant_bd50/standalone_2226",
+    "metric": "tips",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "invariant_bd50/standalone_2226",
+    "metric": "ungapped_mean",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "invariant_bd50/standalone_2226",
+    "metric": "ungapped_sd",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "pow_bd50/standalone_240",
+    "metric": "records",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "pow_bd50/standalone_240",
+    "metric": "tips",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "pow_bd50/standalone_2226",
+    "metric": "records",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "pow_bd50/standalone_2226",
+    "metric": "tips",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "gc_pow_bd50/standalone_240",
+    "metric": "records",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "gc_pow_bd50/standalone_240",
+    "metric": "tips",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "gc_pow_bd50/standalone_2226",
+    "metric": "records",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "gc_pow_bd50/standalone_2226",
+    "metric": "tips",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_240",
+    "metric": "aligned_length",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_240",
+    "metric": "freq_D",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_240",
+    "metric": "freq_E",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_240",
+    "metric": "freq_F",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_240",
+    "metric": "freq_H",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_240",
+    "metric": "freq_I",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_240",
+    "metric": "freq_K",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_240",
+    "metric": "freq_L",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_240",
+    "metric": "freq_M",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_240",
+    "metric": "freq_N",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_240",
+    "metric": "freq_P",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_240",
+    "metric": "freq_Q",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_240",
+    "metric": "freq_R",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_240",
+    "metric": "freq_S",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_240",
+    "metric": "freq_V",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_240",
+    "metric": "freq_W",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_240",
+    "metric": "freq_Y",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_240",
+    "metric": "gap_fraction",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_240",
+    "metric": "gapped_columns",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_240",
+    "metric": "max_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_240",
+    "metric": "mean_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_240",
+    "metric": "records",
+    "value": 10.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_240",
+    "metric": "tips",
+    "value": 10.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_240",
+    "metric": "ungapped_mean",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_240",
+    "metric": "ungapped_sd",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_2226",
+    "metric": "aligned_length",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_2226",
+    "metric": "freq_D",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_2226",
+    "metric": "freq_E",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_2226",
+    "metric": "freq_F",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_2226",
+    "metric": "freq_H",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_2226",
+    "metric": "freq_I",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_2226",
+    "metric": "freq_K",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_2226",
+    "metric": "freq_L",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_2226",
+    "metric": "freq_M",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_2226",
+    "metric": "freq_N",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_2226",
+    "metric": "freq_P",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_2226",
+    "metric": "freq_Q",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_2226",
+    "metric": "freq_R",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_2226",
+    "metric": "freq_S",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_2226",
+    "metric": "freq_V",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_2226",
+    "metric": "freq_W",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_2226",
+    "metric": "freq_Y",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_2226",
+    "metric": "gap_fraction",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_2226",
+    "metric": "gapped_columns",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_2226",
+    "metric": "max_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_2226",
+    "metric": "mean_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_2226",
+    "metric": "records",
+    "value": 10.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_2226",
+    "metric": "tips",
+    "value": 10.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_2226",
+    "metric": "ungapped_mean",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "jc_u10/standalone_2226",
+    "metric": "ungapped_sd",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_240",
+    "metric": "aligned_length",
+    "value": 2.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_240",
+    "metric": "freq_D",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_240",
+    "metric": "freq_E",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_240",
+    "metric": "freq_F",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_240",
+    "metric": "freq_H",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_240",
+    "metric": "freq_I",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_240",
+    "metric": "freq_K",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_240",
+    "metric": "freq_L",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_240",
+    "metric": "freq_M",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_240",
+    "metric": "freq_N",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_240",
+    "metric": "freq_P",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_240",
+    "metric": "freq_Q",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_240",
+    "metric": "freq_R",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_240",
+    "metric": "freq_S",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_240",
+    "metric": "freq_V",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_240",
+    "metric": "freq_W",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_240",
+    "metric": "freq_Y",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_240",
+    "metric": "gap_fraction",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_240",
+    "metric": "gapped_columns",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_240",
+    "metric": "max_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_240",
+    "metric": "mean_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_240",
+    "metric": "records",
+    "value": 4.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_240",
+    "metric": "tips",
+    "value": 4.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_240",
+    "metric": "ungapped_mean",
+    "value": 2.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_240",
+    "metric": "ungapped_sd",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_2226",
+    "metric": "aligned_length",
+    "value": 2.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_2226",
+    "metric": "freq_D",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_2226",
+    "metric": "freq_E",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_2226",
+    "metric": "freq_F",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_2226",
+    "metric": "freq_H",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_2226",
+    "metric": "freq_I",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_2226",
+    "metric": "freq_K",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_2226",
+    "metric": "freq_L",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_2226",
+    "metric": "freq_M",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_2226",
+    "metric": "freq_N",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_2226",
+    "metric": "freq_P",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_2226",
+    "metric": "freq_Q",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_2226",
+    "metric": "freq_R",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_2226",
+    "metric": "freq_S",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_2226",
+    "metric": "freq_V",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_2226",
+    "metric": "freq_W",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_2226",
+    "metric": "freq_Y",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_2226",
+    "metric": "gap_fraction",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_2226",
+    "metric": "gapped_columns",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_2226",
+    "metric": "max_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_2226",
+    "metric": "mean_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_2226",
+    "metric": "records",
+    "value": 4.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_2226",
+    "metric": "tips",
+    "value": 4.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_2226",
+    "metric": "ungapped_mean",
+    "value": 2.0,
+    "n": 3000
+  },
+  {
+    "comparison": "duplicates_u4/standalone_2226",
+    "metric": "ungapped_sd",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "changed_gamma_0.5_vs_5",
+    "metric": "aligned_length",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "changed_gamma_0.5_vs_5",
+    "metric": "gap_fraction",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "changed_gamma_0.5_vs_5",
+    "metric": "gapped_columns",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "changed_gamma_0.5_vs_5",
+    "metric": "max_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "changed_gamma_0.5_vs_5",
+    "metric": "mean_gap_run",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "changed_gamma_0.5_vs_5",
+    "metric": "records",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "changed_gamma_0.5_vs_5",
+    "metric": "tips",
+    "value": 50.0,
+    "n": 3000
+  },
+  {
+    "comparison": "changed_gamma_0.5_vs_5",
+    "metric": "ungapped_mean",
+    "value": 200.0,
+    "n": 3000
+  },
+  {
+    "comparison": "changed_gamma_0.5_vs_5",
+    "metric": "ungapped_sd",
+    "value": 0.0,
+    "n": 3000
+  },
+  {
+    "comparison": "current_python_preset_vs_legacy_GC",
+    "metric": "aligned_length",
+    "value": 200.0,
+    "n": 701
+  },
+  {
+    "comparison": "current_python_preset_vs_legacy_GC",
+    "metric": "duplicate",
+    "value": 0.0,
+    "n": 701
+  },
+  {
+    "comparison": "current_python_preset_vs_legacy_GC",
+    "metric": "records",
+    "value": 50.0,
+    "n": 701
+  },
+  {
+    "comparison": "current_python_preset_vs_legacy_GC",
+    "metric": "tips",
+    "value": 50.0,
+    "n": 701
+  },
+  {
+    "comparison": "current_python_preset_vs_legacy_GC",
+    "metric": "ungapped_duplicate",
+    "value": 0.0,
+    "n": 701
+  },
+  {
+    "comparison": "current_python_preset_vs_legacy_GC",
+    "metric": "unique_fraction",
+    "value": 1.0,
+    "n": 701
+  },
+  {
+    "comparison": "current_python_preset_vs_legacy_G8",
+    "metric": "aligned_length",
+    "value": 200.0,
+    "n": 693
+  },
+  {
+    "comparison": "current_python_preset_vs_legacy_G8",
+    "metric": "duplicate",
+    "value": 0.0,
+    "n": 693
+  },
+  {
+    "comparison": "current_python_preset_vs_legacy_G8",
+    "metric": "records",
+    "value": 50.0,
+    "n": 693
+  },
+  {
+    "comparison": "current_python_preset_vs_legacy_G8",
+    "metric": "tips",
+    "value": 50.0,
+    "n": 693
+  },
+  {
+    "comparison": "current_python_preset_vs_legacy_G8",
+    "metric": "ungapped_duplicate",
+    "value": 0.0,
+    "n": 693
+  },
+  {
+    "comparison": "current_python_preset_vs_legacy_G8",
+    "metric": "unique_fraction",
+    "value": 1.0,
+    "n": 693
+  }
+]

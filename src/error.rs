@@ -1,7 +1,7 @@
 //! Errors from the simulation workflow.
 use std::{error::Error, fmt, io};
 
-/// Duplicate exhaustion is recoverable at the sample level; other errors are fatal.
+/// Tip-check exhaustion is recoverable at the sample level; other errors are fatal.
 #[derive(Debug)]
 pub enum SimulationError {
     /// Every allowed MSA attempt for this sample contained duplicate tip sequences.
@@ -10,6 +10,12 @@ pub enum SimulationError {
         sample: String,
         /// Number of attempts exhausted on the fixed tree.
         attempts: u32,
+    },
+    /// Every allowed attempt failed an ungapped or window selection check.
+    SelectionFailed {
+        sample: String,
+        attempts: u32,
+        reason: crate::selection::Rejection,
     },
     /// An underlying simulation or I/O error that must stop the run.
     Other(Box<dyn Error + Send + Sync>),
@@ -22,6 +28,15 @@ impl fmt::Display for SimulationError {
                 formatter,
                 "No duplicate-free MSA for {sample} after {attempts} attempts"
             ),
+            Self::SelectionFailed {
+                sample,
+                attempts,
+                reason,
+            } => write!(
+                formatter,
+                "No acceptable MSA for {sample} after {attempts} attempts: {}",
+                reason.name()
+            ),
             Self::Other(source) => fmt::Display::fmt(source, formatter),
         }
     }
@@ -30,7 +45,7 @@ impl fmt::Display for SimulationError {
 impl Error for SimulationError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            Self::DuplicateSequences { .. } => None,
+            Self::DuplicateSequences { .. } | Self::SelectionFailed { .. } => None,
             Self::Other(source) => Some(source.as_ref()),
         }
     }
