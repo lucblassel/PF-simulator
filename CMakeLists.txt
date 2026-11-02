@@ -5,9 +5,11 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY ON)
-# Cargo links these static libraries into a position-independent executable.
-# Set this before creating any targets, including IQ-TREE's dependencies.
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+# Linux needs PIC when Cargo links these libraries into its PIE executable.
+# Use the target system so this also applies to cross-compilation from macOS.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
 
 # Keep upstream's legacy build settings inside its own directory.
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)

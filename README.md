@@ -13,8 +13,7 @@ Requires Rust/Cargo (edition 2024), CMake ≥3.20, a C++17 compiler, Eigen3,
 Boost headers, and zlib. Tested on macOS ARM64; a Linux build path is included.
 Cargo builds and statically links the native library automatically. The first
 build takes a few minutes; Rust-only edits reuse the native build.
-The local `phylotree` checkout must include the new `simulation` module; Cargo
-uses `../../Development/rust/phylotree` (adjust the path for another layout).
+Cargo fetches `phylotree` from Git; `Cargo.lock` pins the revision.
 IQ-TREE source must be in `dependencies/iqtree2` (tested commit
 `a00094e03d1ae984e1497e16738f91514df8c366`). RevBayes is not required.
 
@@ -230,6 +229,34 @@ materializing them is optional. All requested sample files have the same stem.
 Directory output stores metadata as JSON sidecars. Direct packed output embeds
 it in SQLite instead. Post-packing directories with PFceiver's existing utility
 still omits these sidecars; retain them separately when using that utility.
+
+### Cluster throughput benchmark
+
+```bash
+sbatch --partition=YOUR_PARTITION scripts/benchmark_slurm.sh \
+  /absolute/path/to/pf-sim /scratch/results
+```
+
+The 96-task array tests 50 tips × 500 sites / 200 tips × 5,000 sites,
+1/4/8/16 workers, G8/GC, packed/files, and three paired seeds. Each task requests
+16 CPUs; add your cluster's account/partition options and optionally `--exclusive`
+for isolated CPU measurements. `%1` limits the array to one active task; change
+it to test concurrent storage load ([Slurm arrays](https://slurm.schedmd.com/job_array.html)).
+Defaults are 2,048/64 candidates, ancestors, POW indels, gapped/window checks and
+one attempt per tree. Set `PF_BENCH_SAMPLES` to override candidate counts.
+
+Each run saves `metrics.tsv`, its simulation summary and log. Metrics include
+accepted/candidate throughput, failures, wall/CPU time, output bytes/files,
+node and binary hash. Timing includes binary startup and output/index writing,
+excluding Slurm launch, metric collection and cleanup. MiB/s measures logical
+output over total runtime; writes are buffered and caches are not flushed.
+Generated datasets are deleted after successful measurement; set
+`PF_BENCH_KEEP_DATA=1` to retain them. Failed-run outputs are preserved.
+Combine results after the array finishes:
+
+```bash
+awk 'FNR == 1 && NR != 1 {next} {print}' /scratch/results/bench-*/metrics.tsv > results.tsv
+```
 
 ### Direct packed output
 
