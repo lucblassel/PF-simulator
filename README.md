@@ -38,6 +38,20 @@ CC=gcc CXX=g++ CARGO_TARGET_DIR=target-jeanzay cargo build --release --locked -j
 ./target-jeanzay/release/pf-sim --help
 ```
 
+Keep the matching GCC runtime loaded when **running** the executable, including
+inside Slurm jobs. For the GCC 15.2 build above, put `module load gcc/15.2.0` in
+the job script before launching `pf-sim`. Rust and CMake are build-time tools;
+the linked C++ runtime is also needed at execution time. Check the actual loader
+choice with `ldd /path/to/pf-sim`: `libstdc++.so.6` should resolve to the GCC module,
+not an older system library.
+
+An incompatible runtime can crash inside `std::ostream::sentry` with no stderr
+message; GCC documents this stream-initialization incompatibility in its
+[GCC 13 release notes](https://gcc.gnu.org/gcc-13/changes.html). A failed simulation
+can leave a partial output directory; retries require a new output directory.
+When a worker dies before replying, the coordinator reports its exit status or
+signal, including SIGSEGV when available, before terminating the remaining workers.
+
 ## Generate
 
 ```sh

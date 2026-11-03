@@ -88,7 +88,35 @@ impl Drop for Worker {
 struct Event {
     worker: usize,
     sample: u64,
-    result: Result<Outcome, String>,
+    result: Result<Outcome, WorkerFailure>,
+}
+
+enum WorkerFailure {
+    OutputClosed,
+    Message(String),
+}
+
+impl From<String> for WorkerFailure {
+    fn from(message: String) -> Self {
+        Self::Message(message)
+    }
+}
+
+fn describe_failure(child: &mut Child, failure: WorkerFailure) -> String {
+    let (message, status) = match failure {
+        // EOF is delivered during process teardown. Wait for the actual status
+        // before cleanup can kill the child and obscure its original signal.
+        WorkerFailure::OutputClosed => (
+            "Worker exited without reporting its result".to_owned(),
+            child.wait().map(Some),
+        ),
+        WorkerFailure::Message(message) => (message, child.try_wait()),
+    };
+    match status {
+        Ok(Some(status)) => format!("{message}; worker process exited with {status}"),
+        Ok(None) => message,
+        Err(error) => format!("{message}; could not obtain worker exit status: {error}"),
+    }
 }
 
 /// Workers inherit simulation options, but never append to the shared log.
@@ -186,15 +214,13 @@ pub(crate) fn run(
                         if cancelled.load(Ordering::Acquire) {
                             break;
                         }
-                        let result = (|| -> Result<Outcome, String> {
+                        let result = (|| -> Result<Outcome, WorkerFailure> {
                             writeln!(input, "{sample}")
                                 .and_then(|_| input.flush())
                                 .map_err(|e| format!("Cannot dispatch sample: {e}"))?;
                             line.clear();
                             if output.read_line(&mut line).map_err(|e| e.to_string())? == 0 {
-                                return Err(
-                                    "Worker exited without reporting its result; see stderr".into(),
-                                );
+                                return Err(WorkerFailure::OutputClosed);
                             }
                             match line.trim_end().split_once('\t') {
                                 Some((reported, status)) if reported == sample.to_string() => {
@@ -209,10 +235,10 @@ pub(crate) fn run(
                                         "no_unique_tip_window" => {
                                             Ok(Outcome::Skipped(Rejection::Window))
                                         }
-                                        _ => Err(format!("Invalid worker status: {status}")),
+                                        _ => Err(format!("Invalid worker status: {status}").into()),
                                     }
                                 }
-                                _ => Err(format!("Invalid worker response: {line:?}")),
+                                _ => Err(format!("Invalid worker response: {line:?}").into()),
                             }
                         })();
                         if result.is_err() {
@@ -240,7 +266,8 @@ pub(crate) fn run(
             let event = receive
                 .recv()
                 .map_err(|_| "Workers stopped before completing the batch")?;
-            let outcome = event.result.map_err(|error| {
+            let outcome = event.result.map_err(|failure| {
+                let error = describe_failure(&mut workers[event.worker].child, failure);
                 format!(
                     "Worker {} failed on sample_{:06}: {error}",
                     event.worker, event.sample
@@ -300,6 +327,25 @@ pub(crate) fn run(
 mod tests {
     use super::*;
     use clap::Parser;
+
+    #[test]
+    fn closed_worker_output_reports_exit_code() {
+        let mut child = Command::new("sh").args(["-c", "exit 7"]).spawn().unwrap();
+        let message = describe_failure(&mut child, WorkerFailure::OutputClosed);
+        assert!(message.contains("exit status: 7"), "{message}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn closed_worker_output_reports_signal_without_stderr() {
+        let mut child = Command::new("sh")
+            .args(["-c", "ulimit -c 0; kill -SEGV $$"])
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        let message = describe_failure(&mut child, WorkerFailure::OutputClosed);
+        assert!(message.contains("signal: 11"), "{message}");
+    }
 
     #[test]
     fn only_successes_advance_progress_when_enforcing_output_count() {
