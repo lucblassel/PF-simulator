@@ -8,12 +8,13 @@ be retained when moving the dataset. Requires Python 3.10+; no extra packages.
 from __future__ import annotations
 
 import argparse
-from contextlib import closing
 import json
 import os
-from pathlib import Path, PurePosixPath
 import sqlite3
 import tempfile
+from contextlib import closing
+from pathlib import Path, PurePosixPath
+from time import time
 from typing import Any
 
 IGNORED_ARGUMENTS = {
@@ -195,11 +196,13 @@ def main() -> None:
         help="Allow an intentional mixture of simulation policies",
     )
     args = parser.parse_args()
+    start = time()
     count = merge_indices(
         args.sources, args.out, allow_mixed_configs=args.allow_mixed_configs
     )
+    elapsed = time() - start
     print(
-        f"Indexed {count} examples in {args.out / 'index.sqlite3'}; tar shards were not modified."
+        f"Indexed {count} examples in {args.out / 'index.sqlite3'} in {elapsed}sec; tar shards were not modified."
     )
 
 
