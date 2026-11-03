@@ -9,6 +9,7 @@ use serde_json::Value;
 pub(crate) const INDEX: &str = "index.sqlite3";
 pub(crate) const PARTIAL_INDEX: &str = "index.sqlite3.partial";
 const SCHEMA: &str = include_str!("packed_schema.sql");
+pub(crate) const DEFAULT_SHARD_BUFFER_BYTES: u32 = 1024 * 1024;
 
 fn integer(value: u64) -> io::Result<i64> {
     i64::try_from(value).map_err(io::Error::other)
@@ -90,9 +91,16 @@ pub(crate) struct PackedWriter {
     next_shard: u64,
     count: u64,
     target: u64,
+    buffer_bytes: usize,
 }
 impl PackedWriter {
-    pub(crate) fn new(root: PathBuf, target: u64, worker: u16, prefix: String) -> io::Result<Self> {
+    pub(crate) fn new(
+        root: PathBuf,
+        target: u64,
+        worker: u16,
+        prefix: String,
+        buffer_bytes: u32,
+    ) -> io::Result<Self> {
         let index = root.join(worker_index_name(u64::from(worker)));
         let db = database(&index)?;
         Ok(Self {
@@ -105,6 +113,7 @@ impl PackedWriter {
             next_shard: 0,
             count: 0,
             target,
+            buffer_bytes: buffer_bytes as usize,
         })
     }
 
@@ -125,6 +134,11 @@ impl PackedWriter {
             .is_some_and(|s| s.archive.get_ref().bytes + footprint + 1024 > self.target)
         {
             self.shard.take().expect("open shard").finish(&self.root)?;
+            // Commit only after the corresponding tar shard has been closed.
+            // One transaction per shard amortizes SQLite syncs over its payloads.
+            self.db
+                .execute_batch("COMMIT; BEGIN IMMEDIATE;")
+                .map_err(io::Error::other)?;
         }
         if self.shard.is_none() {
             let name = format!(
@@ -139,7 +153,9 @@ impl PackedWriter {
             self.shard = Some(Shard {
                 name,
                 archive: tar::Builder::new(CountingWriter {
-                    inner: BufWriter::new(file),
+                    // tar streams through small chunks; coalesce them before
+                    // reaching File::write rather than issuing one write/chunk.
+                    inner: BufWriter::with_capacity(self.buffer_bytes, file),
                     bytes: 0,
                 }),
             });
@@ -176,11 +192,6 @@ impl PackedWriter {
             .execute(params![name, integer(candidate)?, metadata.to_string()])
             .map_err(io::Error::other)?;
         self.count += 1;
-        if self.count.is_multiple_of(1000) {
-            self.db
-                .execute_batch("COMMIT; BEGIN IMMEDIATE;")
-                .map_err(io::Error::other)?;
-        }
         Ok(())
     }
 
@@ -235,4 +246,142 @@ pub(crate) fn merge_workers(root: &Path, workers: u64, expected: u64) -> io::Res
         fs::remove_file(root.join("shards").join(worker_index_name(worker)))?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn large_tar_payloads_are_written_in_large_batches() {
+        #[derive(Default)]
+        struct Sink {
+            calls: usize,
+            bytes: usize,
+        }
+        impl Write for Sink {
+            fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+                self.calls += 1;
+                self.bytes += bytes.len();
+                Ok(bytes.len())
+            }
+            fn flush(&mut self) -> io::Result<()> {
+                Ok(())
+            }
+        }
+        fn writes(capacity: usize) -> Sink {
+            let payload = vec![b'A'; 2_600_000];
+            let mut archive =
+                tar::Builder::new(BufWriter::with_capacity(capacity, Sink::default()));
+            let mut header = tar::Header::new_ustar();
+            header.set_path("sequences/example.fa").unwrap();
+            header.set_size(payload.len() as u64);
+            header.set_cksum();
+            archive.append(&header, payload.as_slice()).unwrap();
+            archive.into_inner().unwrap().into_inner().ok().unwrap()
+        }
+        let small = writes(8192);
+        let batched = writes(DEFAULT_SHARD_BUFFER_BYTES as usize);
+        eprintln!(
+            "tar transport writes for 2.6 MB: 8 KiB buffer={}, 1 MiB buffer={}",
+            small.calls, batched.calls
+        );
+        assert_eq!(small.bytes, batched.bytes);
+        assert!(
+            batched.calls < small.calls / 8,
+            "{} vs {} writes",
+            batched.calls,
+            small.calls
+        );
+    }
+
+    #[test]
+    fn schema_and_version_roll_back_together() {
+        let db = Connection::open_in_memory().unwrap();
+        db.execute_batch(SCHEMA).unwrap();
+        assert!(!db.is_autocommit());
+        db.execute_batch("ROLLBACK").unwrap();
+        let version: i64 = db
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .unwrap();
+        let tables: i64 = db
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!((version, tables), (0, 0));
+    }
+
+    #[test]
+    fn rotation_commits_only_closed_shard_rows() {
+        struct Directory(PathBuf);
+        impl Drop for Directory {
+            fn drop(&mut self) {
+                let _ = fs::remove_dir_all(&self.0);
+            }
+        }
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let directory = Directory(std::env::temp_dir().join(format!(
+            "pf-shard-transaction-{}-{nonce}",
+            std::process::id()
+        )));
+        fs::create_dir(&directory.0).unwrap();
+        // Each pair exceeds this target, forcing rotation before the second pair.
+        let mut writer = PackedWriter::new(
+            directory.0.clone(),
+            1024,
+            0,
+            String::new(),
+            DEFAULT_SHARD_BUFFER_BYTES,
+        )
+        .unwrap();
+        writer
+            .write(
+                0,
+                "sample_000000",
+                b"(T1,T2);",
+                b">T1\nA\n>T2\nC\n",
+                &serde_json::json!({}),
+            )
+            .unwrap();
+        let partial = directory.0.join("worker-000.index.sqlite3.partial");
+        {
+            let reader =
+                Connection::open_with_flags(&partial, OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+            let version: i64 = reader
+                .query_row("PRAGMA user_version", [], |row| row.get(0))
+                .unwrap();
+            assert_eq!(version, 0); // Schema and first pair remain uncommitted.
+        }
+        writer
+            .write(
+                1,
+                "sample_000001",
+                b"(T1,T2);",
+                b">T1\nG\n>T2\nT\n",
+                &serde_json::json!({}),
+            )
+            .unwrap();
+        assert!(directory.0.join("worker-000-shard-000000.tar").exists());
+        {
+            let reader =
+                Connection::open_with_flags(&partial, OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+            let count: i64 = reader
+                .query_row("SELECT COUNT(*) FROM pairs", [], |row| row.get(0))
+                .unwrap();
+            assert_eq!(count, 1); // The open second shard has not been committed.
+        }
+        writer.finish().unwrap();
+        assert!(!partial.exists());
+        let db = Connection::open(directory.0.join(worker_index_name(0))).unwrap();
+        let count: i64 = db
+            .query_row("SELECT COUNT(*) FROM pairs", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 2);
+    }
 }

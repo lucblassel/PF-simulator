@@ -42,6 +42,10 @@ struct Config {
     #[arg(long, default_value_t = 1_073_741_824, value_parser = clap::value_parser!(u64).range(1024..), hide_short_help = true, help_heading = "Packed output")]
     shard_size_bytes: u64,
 
+    /// Tar output buffer bytes per worker (1 MiB); larger buffers use more memory.
+    #[arg(long, default_value_t = packed::DEFAULT_SHARD_BUFFER_BYTES, value_parser = clap::value_parser!(u32).range(1024..), hide_short_help = true, help_heading = "Packed output")]
+    shard_buffer_bytes: u32,
+
     /// Optional identity for merging independent batches (does not change the seed).
     #[arg(long, hide_short_help = true, help_heading = "Packed output")]
     batch_id: Option<String>,
@@ -544,6 +548,7 @@ fn new_packed_writer(config: &Config, id: u16) -> std::io::Result<Option<packed:
             config.shard_size_bytes,
             id,
             config.file_prefix(),
+            config.shard_buffer_bytes,
         )
         .map(Some)
     } else {

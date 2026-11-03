@@ -143,9 +143,10 @@ class SimulationTests(unittest.TestCase):
                                    json.loads((files / "metadata" / f"{path.stem}.json").read_text()))
                         for path in (files / "msa_untrimmed").glob("*.fa")}
             self.assertTrue(expected)
-            for jobs, target in ((1, 1024), (3, 1024), (3, 32768)):
+            for jobs, target, buffer in ((1, 1024, 262144), (3, 1024, 1048576), (3, 32768, 16777216)):
                 output = root / f"{jobs}-{target}"
-                run(output, *options, "--jobs", str(jobs), "--output-format", "packed", "--shard-size-bytes", str(target))
+                run(output, *options, "--jobs", str(jobs), "--output-format", "packed", "--shard-size-bytes", str(target),
+                    "--shard-buffer-bytes", str(buffer))
                 self.assertEqual(packed_snapshot(output), expected)
                 for name in ("trees", "msa_untrimmed", "metadata", "unaligned", "msa_trimmed"):
                     self.assertFalse((output / name).exists())
@@ -166,6 +167,8 @@ class SimulationTests(unittest.TestCase):
                 self.assertFalse((output / "workers").exists())
                 summary = json.loads((output / "simulation_summary.json").read_text())
                 self.assertEqual(summary["output_layout"]["shard_size_bytes"], target)
+                self.assertEqual(summary["output_layout"]["shard_buffer_bytes"], buffer)
+                self.assertIn(f"--shard-buffer-bytes={buffer}", summary["resolved_arguments"])
                 self.assertEqual(summary["file_prefix"], "batch.001")
                 self.assertIn("--file-prefix=batch.001", summary["resolved_arguments"])
                 command = summary["reproduce_command"] + ' && printf "\nREPLAY=%s\n" "$replay_dir"'
@@ -271,6 +274,9 @@ class SimulationTests(unittest.TestCase):
                 result = run(out, "--output-format", "packed", flag, success=False)
                 self.assertIn("one full MSA/tree pair", result.stderr)
                 self.assertFalse(out.exists())
+            invalid = root / "invalid-buffer"
+            run(invalid, "--shard-buffer-bytes", "0", success=False)
+            self.assertFalse(invalid.exists())
 
     def test_packed_batch_merge_without_repacking(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -281,7 +287,8 @@ class SimulationTests(unittest.TestCase):
             expected = {}
             for batch, seed in (("a", "1"), ("b", "2")):
                 output = root / "batches" / batch
-                run(output, *options, "--seed", seed, "--batch-id", batch)
+                run(output, *options, "--seed", seed, "--batch-id", batch,
+                    "--shard-buffer-bytes", str(262144 if batch == "a" else 16777216))
                 batches.append(output)
                 expected.update({f"{batch}/{name}": row for name, row in packed_snapshot(output).items()})
             original = {path: path.read_bytes() for path in root.rglob("*.tar")}

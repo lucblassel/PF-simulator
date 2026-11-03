@@ -1,3 +1,6 @@
+-- Schema setup and inserts share one transaction, including the version marker.
+BEGIN IMMEDIATE;
+
 PRAGMA user_version = 3;
 
 CREATE TABLE pairs (
@@ -13,5 +16,3 @@ CREATE TABLE sample_metadata (
 
 CREATE TABLE dataset_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 INSERT INTO dataset_metadata VALUES ('simulation_metadata_version', '1');
-
-BEGIN IMMEDIATE;

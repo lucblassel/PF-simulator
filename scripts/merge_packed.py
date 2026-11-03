@@ -22,6 +22,7 @@ IGNORED_ARGUMENTS = {
     "--jobs",
     "--output-format",
     "--shard-size-bytes",
+    "--shard-buffer-bytes",
     "--batch-id",
     "--file-prefix",
 }

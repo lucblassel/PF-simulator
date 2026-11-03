@@ -1,0 +1,56 @@
+{
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "machine": "arm64",
+  "logical_cpus": 10,
+  "arguments": {
+    "writer": [
+      [
+        "shard8k",
+        "/private/tmp/pf-sqlite-variants.fTlorL/shard-writer"
+      ],
+      [
+        "buffer1m",
+        "/Users/lucblassel/Work/PF-simulator/target/release/examples/benchmark_packed_io"
+      ]
+    ],
+    "simulator": [
+      [
+        "shard8k",
+        "/private/tmp/pf-sqlite-variants.fTlorL/shard-simulator"
+      ],
+      [
+        "buffer1m",
+        "/Users/lucblassel/Work/PF-simulator/target/release/pf-sim"
+      ]
+    ],
+    "out": "benchmarks/local_sqlite_buffer_2026-11-03",
+    "workers": "8",
+    "rounds": 3,
+    "small_samples": 2048,
+    "large_samples": 64,
+    "small_payload_bytes": 65536,
+    "large_payload_bytes": 2600000,
+    "workloads": "small,large",
+    "formats": "packed,files",
+    "shard_size_bytes": 1073741824,
+    "keep_data": false
+  },
+  "executables": {
+    "writer/shard8k": {
+      "path": "/private/tmp/pf-sqlite-variants.fTlorL/shard-writer",
+      "sha256": "30ea225daaee73fa6b5d9579df967c456a2a0730a0dc3621d5a4d2b032edfb13"
+    },
+    "writer/buffer1m": {
+      "path": "/Users/lucblassel/Work/PF-simulator/target/release/examples/benchmark_packed_io",
+      "sha256": "824ff994369bca43192d85dbbd9da72d37f86b72b3800505e63f27b7127bf47e"
+    },
+    "simulation/shard8k": {
+      "path": "/private/tmp/pf-sqlite-variants.fTlorL/shard-simulator",
+      "sha256": "d56996be88c36c65330eb8552573529e88e590ccacb67797121ea03292118647"
+    },
+    "simulation/buffer1m": {
+      "path": "/Users/lucblassel/Work/PF-simulator/target/release/pf-sim",
+      "sha256": "fc743f54c7d471c19b7df71d608e12fd355f8bb8ba9dd966f7185edcf332f55b"
+    }
+  }
+}

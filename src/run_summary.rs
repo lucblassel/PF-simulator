@@ -78,6 +78,10 @@ fn resolved_arguments(config: &Config) -> io::Result<Vec<OsString>> {
         ("--output-format", value(config.output_format)),
         ("--shard-size-bytes", config.shard_size_bytes.to_string()),
         (
+            "--shard-buffer-bytes",
+            config.shard_buffer_bytes.to_string(),
+        ),
+        (
             "--batch-id",
             config.batch_id.clone().expect("resolved batch identity"),
         ),
@@ -261,7 +265,7 @@ impl RunSummary {
             json!({"format": "packed", "format_version": 3, "simulation_metadata_version": 1,
                 "index": "index.sqlite3", "full_msa": format!("tar member sequences/{}worker-<worker>-sample_<candidate>.fa", config.file_prefix()),
                 "sample_metadata": "sample_metadata table", "shards": format!("shards/{}worker-*-shard-*.tar", config.file_prefix()),
-                "shard_size_bytes": config.shard_size_bytes, "batch_id": config.batch_id})
+                "shard_size_bytes": config.shard_size_bytes, "shard_buffer_bytes": config.shard_buffer_bytes, "batch_id": config.batch_id})
         } else {
             json!({"format": "files", "full_msa": "msa_untrimmed", "sample_metadata": "metadata",
                 "trimmed": "msa_trimmed (when materialized)", "unaligned": "unaligned (when materialized)"})

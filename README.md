@@ -15,11 +15,27 @@ Cargo builds and statically links the native library automatically. The first
 build takes a few minutes; Rust-only edits reuse the native build.
 Cargo fetches `phylotree` from Git; `Cargo.lock` pins the revision.
 IQ-TREE source must be in `dependencies/iqtree2` (tested commit
-`a00094e03d1ae984e1497e16738f91514df8c366`). RevBayes is not required.
+`a00094e03d1ae984e1497e16738f91514df8c366`).
 
 ```sh
 cargo build -j 8
 cargo test
+```
+
+### Build on Jean-Zay
+
+```sh
+# Clone repo
+git clone --recursive https://github.com/lucblassel/PF-simulator.git && cd PF-simulator
+
+# Load correct modules and deps
+module load gcc/15.2.0  eigen/3.4.0  boost/1.86.0 rust/1.96.1  cmake/3.31.4
+
+# Compile to fresh dir to avoid re-unsing stale CMAKE
+CC=gcc CXX=g++ CARGO_TARGET_DIR=target-jeanzay cargo build --release --locked -j 4
+
+# Use compiled binary
+./target-jeanzay/release/pf-sim --help
 ```
 
 ## Generate
@@ -240,8 +256,9 @@ sbatch --partition=YOUR_PARTITION scripts/benchmark_slurm.sh \
 The 96-task array tests 50 tips × 500 sites / 200 tips × 5,000 sites,
 1/4/8/16 workers, G8/GC, packed/files, and three paired seeds. Each task requests
 16 CPUs; add your cluster's account/partition options and optionally `--exclusive`
-for isolated CPU measurements. `%1` limits the array to one active task; change
-it to test concurrent storage load ([Slurm arrays](https://slurm.schedmd.com/job_array.html)).
+for isolated CPU measurements. Use `--array=0-95%1` to limit the array to one
+active task; the script's `%4` allows concurrent storage load
+([Slurm arrays](https://slurm.schedmd.com/job_array.html)).
 Defaults are 2,048/64 candidates, ancestors, POW indels, gapped/window checks and
 one attempt per tree. Set `PF_BENCH_SAMPLES` to override candidate counts.
 
@@ -257,6 +274,78 @@ Combine results after the array finishes:
 ```bash
 awk 'FNR == 1 && NR != 1 {next} {print}' /scratch/results/bench-*/metrics.tsv > results.tsv
 ```
+
+### Sustained buffer-size benchmark (8 Slurm jobs)
+
+Rebuild the binary first; this benchmark requires `--shard-buffer-bytes`:
+
+```bash
+cargo build --release --locked
+sbatch scripts/benchmark_buffers_slurm.sh /absolute/path/to/pf-sim \
+  "$WORK/pf-buffer-bench" "$SCRATCH/pf-buffer-bench"
+```
+
+Add your cluster's partition/account options to `sbatch`. The array contains only
+eight jobs and defaults to **one active job** (`0-7%1`) to reduce self-contention.
+Each requests 16 CPUs, 32 GiB RAM, and one hour. Tasks 0/1 use 256 KiB per-worker
+buffers, 2/3 use 1 MiB, 4/5 use 4 MiB, and 6/7 use 16 MiB. Even tasks write to
+the supplied WORK directory; odd tasks use SCRATCH. All use the same seed and
+simulation options: Python preset with G8, 200 tips, 5,000 sites, ancestors,
+POW indels, gapped/window checks, 1 GiB shards, and one attempt per tree.
+
+`--ensure-samples` requests **10,000 accepted outputs per job**; rejected candidates
+are replaced. Allow roughly 25 GiB of temporary output per active job, potentially
+more with indels. Successful datasets are deleted after measurement. Set
+`PF_BENCH_KEEP_DATA=1` to retain them; failed output always remains. Small metadata,
+logs and summaries remain under each filesystem's results directory.
+
+Each point records `metrics.csv`, per-run commands/summaries/logs, CPU model and
+affinity, timestamps, executable hash, worker/buffer settings, failures, wall/CPU
+time, shard/file counts, and logical output MiB/s. This is **end-to-end simulator
+throughput**, including final index merging, not a raw filesystem bandwidth test.
+Data enumeration and cleanup are outside timing; OS caches are not flushed.
+
+Optional environment overrides are `PF_BENCH_WORKERS` (within allocated CPUs),
+`PF_BENCH_SAMPLES`, and `PF_BENCH_REPEATS`. Repeats run sequentially within each
+of the same eight jobs; matching repeats use matching seeds across all points.
+The default is one run per point, so it does not estimate run-to-run variability.
+Combine results after the array finishes:
+
+```bash
+awk 'FNR == 1 && NR != 1 {next} {print}' \
+  "$WORK/pf-buffer-bench"/buffer-*/metrics.csv \
+  "$SCRATCH/pf-buffer-bench"/buffer-*/metrics.csv > buffer-metrics.csv
+```
+
+### Local output and SQLite benchmark
+
+```bash
+cargo build --release --locked --example benchmark_packed_io --bin pf-sim
+python3 benchmarks/benchmark_local_sqlite.py \
+  --writer current=target/release/examples/benchmark_packed_io \
+  --simulator current=target/release/pf-sim \
+  --out /path/on/test/filesystem/local-benchmark
+```
+
+This runs sequentially on macOS or Linux, randomizing the order of configurations.
+It compares packed/files output at 1/4/8 workers with three repeats. The writer-only
+cases use prebuilt 64 KiB / 2.6 MB payloads and report database setup, write,
+finalization and index-merge timings. Their workers are independent threads; the
+optional full simulator cases use the actual process pool and the cluster's G8
+simulation settings. For before/after comparisons, save copies of both release
+executables before editing, then supply additional `--writer old=/path/to/copy`
+and `--simulator old=/path/to/copy` arguments.
+
+Results include `metrics.csv`, `REPORT.md`, executable hashes, and a `runs.tar.gz`
+archive of logs and timing JSON files. Output datasets are removed after each successful run unless
+`--keep-data` is supplied; failed output is retained. Choose a new output directory
+on the filesystem you want to measure. For sustained throughput, increase
+`--large-samples` (for example to 512). `--shard-size-bytes` can exercise rotation.
+Use `--workloads small --formats packed`, `--small-samples 8192` and
+`--small-payload-bytes 256` for an index-heavy case that crosses the former
+1,000-row commit interval. These payload size overrides affect writer-only runs.
+SQLite durability settings remain unchanged; tar/FASTA writes are buffered, and
+the benchmark does not flush the OS cache. Mac results do not predict Lustre latency.
 
 ### Direct packed output
 
@@ -297,6 +386,12 @@ output. The default `--output-format files` remains available.
 `--shard-size-bytes` defaults to 1 GiB, including tar headers, padding and end
 markers. Pairs stay together; an oversized pair gets its own shard. The index
 uses PFceiver's version-3 `pairs` schema and is readable by `PackedPairs`.
+Each worker keeps one SQLite transaction open for its current shard, including
+initial schema creation. The transaction commits after closing that shard, or
+at worker completion. Worker indices are merged only after all workers finish.
+Each active shard uses a 1 MiB output buffer to coalesce the tar library's small
+streaming writes. Set `--shard-buffer-bytes` to tune it independently of shard
+size; the setting is retained in the summary and replay command.
 Window coordinates and provenance are stored in
 `sample_metadata(name, candidate_id, metadata_json)`; `dataset_metadata` records
 the metadata extension version. The run summary remains at the dataset root.

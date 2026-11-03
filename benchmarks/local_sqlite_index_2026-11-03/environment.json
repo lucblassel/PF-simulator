@@ -1,0 +1,47 @@
+{
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "machine": "arm64",
+  "logical_cpus": 10,
+  "arguments": {
+    "writer": [
+      [
+        "legacy",
+        "/private/tmp/pf-sqlite-variants.fTlorL/legacy-writer"
+      ],
+      [
+        "atomic",
+        "/private/tmp/pf-sqlite-variants.fTlorL/atomic-writer"
+      ],
+      [
+        "shard",
+        "/private/tmp/pf-sqlite-variants.fTlorL/shard-writer"
+      ]
+    ],
+    "simulator": [],
+    "out": "benchmarks/local_sqlite_index_2026-11-03",
+    "workers": "1,8",
+    "rounds": 5,
+    "small_samples": 8192,
+    "large_samples": 64,
+    "small_payload_bytes": 256,
+    "large_payload_bytes": 2600000,
+    "workloads": "small",
+    "formats": "packed",
+    "shard_size_bytes": 1073741824,
+    "keep_data": false
+  },
+  "executables": {
+    "writer/legacy": {
+      "path": "/private/tmp/pf-sqlite-variants.fTlorL/legacy-writer",
+      "sha256": "f7da196ae2715c52874d9f87f0dad7200195d0e886089327e5e1cd4d22091a8e"
+    },
+    "writer/atomic": {
+      "path": "/private/tmp/pf-sqlite-variants.fTlorL/atomic-writer",
+      "sha256": "5c1a580c328857e47d1169436a884d7ba0078e869d967f636d52c4599253a448"
+    },
+    "writer/shard": {
+      "path": "/private/tmp/pf-sqlite-variants.fTlorL/shard-writer",
+      "sha256": "30ea225daaee73fa6b5d9579df967c456a2a0730a0dc3621d5a4d2b032edfb13"
+    }
+  }
+}
