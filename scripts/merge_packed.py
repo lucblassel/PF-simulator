@@ -28,6 +28,25 @@ IGNORED_ARGUMENTS = {
     "--file-prefix",
 }
 
+INSERT_BATCH_SIZE = 1_000
+
+
+def insert_samples(target: sqlite3.Connection, samples: list[tuple]) -> None:
+    """Insert a bounded batch while retaining the enclosing merge transaction."""
+    target.executemany(
+        "INSERT INTO pairs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (sample[:9] for sample in samples),
+    )
+    target.executemany(
+        "INSERT INTO sample_metadata VALUES (?, ?, ?)",
+        ((sample[1], sample[9], sample[10]) for sample in samples),
+    )
+    target.executemany(
+        "INSERT INTO sample_batches VALUES (?, ?)",
+        ((sample[1], sample[11]) for sample in samples),
+    )
+    samples.clear()
+
 
 def policy(summary: dict[str, Any]) -> tuple[str, ...]:
     return tuple(
@@ -113,7 +132,8 @@ def merge_indices(
                         )
                     seen = 0
                     # Validate each shard once; keep memory proportional to shard count.
-                    sizes: dict[str, int] = {}
+                    shards: dict[str, tuple[str, int]] = {}
+                    samples: list[tuple] = []
                     rows = db.execute(
                         "SELECT p.*, m.candidate_id, m.metadata_json FROM pairs p JOIN sample_metadata m USING(name) ORDER BY p.id"
                     )
@@ -131,24 +151,24 @@ def merge_indices(
                             candidate,
                             metadata,
                         ) = row
-                        relative = PurePosixPath(shard)
-                        if relative.is_absolute() or ".." in relative.parts:
-                            raise ValueError(f"Unsafe shard path: {shard}")
-                        path = (source / shard).resolve()
-                        shard_path = path.relative_to(destination).as_posix()
-                        if shard not in sizes:
-                            sizes[shard] = path.stat().st_size
+                        if shard not in shards:
+                            relative = PurePosixPath(shard)
+                            if relative.is_absolute() or ".." in relative.parts:
+                                raise ValueError(f"Unsafe shard path: {shard}")
+                            path = (source / shard).resolve()
+                            shard_path = path.relative_to(destination).as_posix()
+                            shards[shard] = (shard_path, path.stat().st_size)
+                        shard_path, shard_size = shards[shard]
                         for offset, size in [
                             (tree_offset, tree_size),
                             (sequence_offset, sequence_size),
                         ]:
-                            if offset < 512 or size < 0 or offset + size > sizes[shard]:
+                            if offset < 512 or size < 0 or offset + size > shard_size:
                                 raise ValueError(
                                     f"Invalid payload bounds in {source}: {name}"
                                 )
                         qualified = f"{identity}/{name}"
-                        target.execute(
-                            "INSERT INTO pairs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        samples.append(
                             (
                                 count,
                                 qualified,
@@ -159,20 +179,18 @@ def merge_indices(
                                 sequence_name,
                                 sequence_offset,
                                 sequence_size,
+                                candidate,
+                                metadata,
+                                identity,
                             ),
                         )
-                        target.execute(
-                            "INSERT INTO sample_metadata VALUES (?, ?, ?)",
-                            (qualified, candidate, metadata),
-                        )
-                        target.execute(
-                            "INSERT INTO sample_batches VALUES (?, ?)",
-                            (qualified, identity),
-                        )
+                        if len(samples) >= INSERT_BATCH_SIZE:
+                            insert_samples(target, samples)
                         count += 1
                         seen += 1
                     if seen != source_count:
                         raise ValueError(f"Missing sample metadata: {source}")
+                    insert_samples(target, samples)
             target.commit()
         # Exclusive publication prevents accidentally replacing an existing index.
         os.link(staging, index)

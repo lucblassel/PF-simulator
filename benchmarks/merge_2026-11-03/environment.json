@@ -1,0 +1,18 @@
+{
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "python": "3.15.1 (main, Oct 21 2026, 05:55:12) [Clang 21.0.0 (clang-2100.3.34.2)]",
+  "batches": 20,
+  "samples_per_batch": 100000,
+  "metadata_padding_bytes": 1500,
+  "note": "Synthetic indices; sparse placeholders are not training archives",
+  "mergers": {
+    "before": {
+      "path": "/private/tmp/pf-merge-baseline/scripts/merge_packed.py",
+      "sha256": "3184b911c2bc2d0a793fb00a2e22c81e9c09e0f8fcc2fb1010ceb3763489423c"
+    },
+    "after": {
+      "path": "/Users/lucblassel/Work/PF-simulator/scripts/merge_packed.py",
+      "sha256": "f78a811b86fd406566ee05b04c9e87c6740d08a0a34f967b2731b6c01da8b221"
+    }
+  }
+}

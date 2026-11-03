@@ -1,0 +1,18 @@
+[
+  {
+    "label": "before",
+    "repeat": 0,
+    "wall_seconds": 120.54605291597545,
+    "samples_per_second": 16591.169529159662,
+    "index_bytes": 4732235776,
+    "logical_sha256": "ca49481db207efebb1d178d1bbf94f65fc87da26a577280438a56e840b7428ec"
+  },
+  {
+    "label": "after",
+    "repeat": 0,
+    "wall_seconds": 35.87238383409567,
+    "samples_per_second": 55753.19469287841,
+    "index_bytes": 4732235776,
+    "logical_sha256": "ca49481db207efebb1d178d1bbf94f65fc87da26a577280438a56e840b7428ec"
+  }
+]

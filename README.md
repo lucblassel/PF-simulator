@@ -428,6 +428,22 @@ Repeated identities, incomplete runs and conflicting policies are rejected;
 never overwritten. Sample contents are reproducible across worker counts;
 worker assignment and shard bytes/order can vary.
 
+Merging reads and rewrites the SQLite rows (including per-sample metadata),
+but never reads the tree/MSA payloads. Shard paths and sizes are checked once
+per shard; inserts use bounded batches within a single transaction.
+`benchmarks/benchmark_merge.py` measures this step independently with synthetic
+indices, defaulting to 20 batches of 100,000 samples:
+
+```bash
+python3 benchmarks/benchmark_merge.py --out benchmarks/merge-local \
+  --merger current=scripts/merge_packed.py
+```
+
+The benchmark needs several GB of temporary space; its placeholder shards are
+not usable training data. Generated indices are deleted after verification.
+See the [local two-million-row comparison](benchmarks/merge_2026-11-03/REPORT.md)
+for measured results.
+
 To pack raw, trimmed or unaligned sequences with the existing packer, select
 `--sequence-dir msa_untrimmed`, `msa_trimmed` or `unaligned`, respectively.
 See [AliSim's indel documentation](https://iqtree.github.io/doc/AliSim#insertion-and-deletion-models)

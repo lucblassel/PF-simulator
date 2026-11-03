@@ -15,6 +15,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from test_merge_packed import MergeTests  # noqa: F401 -- included by unittest.main
 
 
 EXECUTABLE = str(Path(sys.argv.pop(1)).resolve())
