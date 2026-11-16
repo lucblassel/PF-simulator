@@ -431,6 +431,7 @@ fn simulate_sample(
                 &name,
                 newick.as_bytes(),
                 &data.to_fasta(false),
+                data.rows[0].len(),
                 &metadata,
             )?;
         } else {

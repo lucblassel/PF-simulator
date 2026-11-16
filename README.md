@@ -409,6 +409,8 @@ size; the setting is retained in the summary and replay command.
 Window coordinates and provenance are stored in
 `sample_metadata(name, candidate_id, metadata_json)`; `dataset_metadata` records
 the metadata extension version. The run summary remains at the dataset root.
+The index also stores the longest FASTA row per pair and for the dataset, including
+gaps and excluding the training loader's special tokens.
 No per-example files or extra FASTA views are written.
 
 For cluster jobs, use separate output directories, distinct seeds and unique
@@ -417,12 +419,16 @@ to `seed-<seed>`. Batch IDs name examples during merging; they do not change RNG
 Merge completed batches without copying or repacking their tar files:
 
 ```bash
-python3 scripts/merge_packed.py dataset/batches/job-* --out dataset
+python3 scripts/merge_packed.py batches/job-* --out dataset
 ```
 
-Inputs must be below `dataset`; keep the whole directory tree when relocating
-it. The merger assigns dense IDs and names examples as `<batch-id>/<sample>`.
-It preserves batch summaries in `batches` and maps examples in `sample_batches`.
+Inputs and output must share a filesystem. The merger hard-links shards into
+`dataset/shards/`, leaving the source batches intact. Only the merged directory
+is needed for training. The merger assigns dense IDs and names examples as
+`<batch-id>/<sample>`.
+The merged `simulation_summary.json` lists all original batch summaries and
+the total number of written samples. The SQLite index also keeps the batch
+summaries in `batches` and maps examples in `sample_batches`.
 Repeated identities, incomplete runs and conflicting policies are rejected;
 `--allow-mixed-configs` permits an intentional mixture. Existing indices are
 never overwritten. Sample contents are reproducible across worker counts;

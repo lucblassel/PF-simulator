@@ -83,7 +83,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let metadata = json!({"sample": name, "candidate_id": candidate,
                             "benchmark": true, "padding": "x".repeat(1500)});
                         if let Some(writer) = &mut writer {
-                            writer.write(candidate, &name, tree, sequence, &metadata)?;
+                            writer.write(
+                                candidate,
+                                &name,
+                                tree,
+                                sequence,
+                                sequence.len() - 5,
+                                &metadata,
+                            )?;
                         } else {
                             fs::write(args.out.join("trees").join(format!("{name}.nwk")), tree)?;
                             fs::write(

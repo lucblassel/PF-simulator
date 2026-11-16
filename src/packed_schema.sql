@@ -16,3 +16,8 @@ CREATE TABLE sample_metadata (
 
 CREATE TABLE dataset_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 INSERT INTO dataset_metadata VALUES ('simulation_metadata_version', '1');
+
+CREATE TABLE sequence_lengths (
+    pair_id INTEGER PRIMARY KEY REFERENCES pairs(id), max_sequence_length INTEGER NOT NULL
+);
+CREATE TABLE sequence_length_stats (max_sequence_length INTEGER NOT NULL);

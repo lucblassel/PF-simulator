@@ -9,13 +9,15 @@ archives. Inputs and generated indices are temporary. Example:
 
 Each script needs its adjacent ../src/packed_schema.sql. Defaults match twenty
 100,000-sample batches. Allow several GB of temporary disk space. All versions
-must produce identical logical SQLite contents; digest checks are outside timing.
+must produce equivalent sample and provenance rows; shard paths are normalized
+to the source shards. Validation is outside timing.
 """
 
 import argparse
 import hashlib
 import json
 import platform
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -67,14 +69,31 @@ def fixture(root, batches, samples, metadata_bytes):
                 "INSERT INTO sample_metadata VALUES (?, ?, ?)",
                 ((f"sample_{i:06}", i, metadata) for i in range(samples)),
             )
+            db.execute("INSERT INTO sequence_lengths SELECT id, 100 FROM pairs")
+            db.execute("INSERT INTO sequence_length_stats VALUES (100)")
             db.commit()
         sources.append(source)
     return sources
 
 
-def digest_index(path):
+def digest_index(path, source_shards):
     digest = hashlib.sha256()
+    aliases = {}
     with closing(sqlite3.connect(path)) as db:
+        if db.execute(
+            "SELECT 1 FROM sqlite_master WHERE name='sequence_lengths'"
+        ).fetchone():
+            count, minimum, maximum = db.execute(
+                "SELECT COUNT(*), MIN(max_sequence_length), MAX(max_sequence_length) FROM sequence_lengths"
+            ).fetchone()
+            if (count, minimum, maximum) != (
+                db.execute("SELECT COUNT(*) FROM pairs").fetchone()[0],
+                100,
+                100,
+            ) or db.execute("SELECT * FROM sequence_length_stats").fetchall() != [
+                (100,)
+            ]:
+                raise RuntimeError("Merged sequence lengths differ")
         for table, order in (
             ("pairs", "id"),
             ("sample_metadata", "name"),
@@ -84,6 +103,12 @@ def digest_index(path):
         ):
             digest.update(table.encode())
             for row in db.execute(f"SELECT * FROM {table} ORDER BY {order}"):
+                if table == "pairs":
+                    shard = row[2]
+                    if shard not in aliases:
+                        stat = (path.parent / shard).stat()
+                        aliases[shard] = source_shards[stat.st_dev, stat.st_ino]
+                    row = (*row[:2], aliases[shard], *row[3:])
                 digest.update(json.dumps(row, separators=(",", ":")).encode())
                 digest.update(b"\n")
     return digest.hexdigest()
@@ -134,6 +159,10 @@ def main():
         sources = fixture(
             root, args.batches, args.samples_per_batch, args.metadata_bytes
         )
+        source_shards = {}
+        for shard in (root / "batches").rglob("*.tar"):
+            stat = shard.stat()
+            source_shards[stat.st_dev, stat.st_ino] = shard.relative_to(root).as_posix()
         for repeat in range(args.rounds):
             for label, script in mergers[:: 1 if repeat % 2 == 0 else -1]:
                 start = perf_counter()
@@ -164,7 +193,7 @@ def main():
                     "index_bytes": index.stat().st_size,
                 }
                 print(json.dumps(record), flush=True)
-                record["logical_sha256"] = digest_index(index)
+                record["logical_sha256"] = digest_index(index, source_shards)
                 if expected is None:
                     expected = record["logical_sha256"]
                 if record["logical_sha256"] != expected:
@@ -174,6 +203,9 @@ def main():
                     json.dumps(results, indent=2) + "\n"
                 )
                 index.unlink()
+                (root / "simulation_summary.json").unlink(missing_ok=True)
+                if (root / "shards").is_dir():
+                    shutil.rmtree(root / "shards")
 
 
 if __name__ == "__main__":

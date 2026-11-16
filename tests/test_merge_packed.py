@@ -60,6 +60,11 @@ class MergeTests(unittest.TestCase):
                     for i in range(self.samples)
                 ),
             )
+            db.executemany(
+                "INSERT INTO sequence_lengths VALUES (?, ?)",
+                ((i, 50 + i % 10) for i in range(self.samples)),
+            )
+            db.execute("INSERT INTO sequence_length_stats VALUES (59)")
             db.commit()
 
     def change(self, sql, parameters=()):
@@ -71,6 +76,8 @@ class MergeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, message):
             merge_packed.merge_indices([self.source], self.root)
         self.assertFalse((self.root / "index.sqlite3").exists())
+        self.assertFalse((self.root / "simulation_summary.json").exists())
+        self.assertFalse((self.root / "shards").exists())
         self.assertEqual(list(self.root.glob(".index-*.sqlite3")), [])
 
     def test_batched_rows_preserve_content_and_resolve_each_shard_once(self):
@@ -101,7 +108,7 @@ class MergeTests(unittest.TestCase):
                     (
                         i,
                         f"a/sample_{i}",
-                        "batches/a/shards/a.tar",
+                        "shards/shard-000000.tar",
                         f"trees/{i}.nwk",
                         512,
                         10,
@@ -115,6 +122,20 @@ class MergeTests(unittest.TestCase):
                 )
             self.assertEqual(db.execute("PRAGMA integrity_check").fetchone(), ("ok",))
             self.assertEqual(list(db.execute("PRAGMA foreign_key_check")), [])
+            self.assertEqual(
+                db.execute("SELECT * FROM sequence_length_stats").fetchall(), [(59,)]
+            )
+            self.assertEqual(
+                db.execute(
+                    "SELECT * FROM sequence_lengths ORDER BY pair_id"
+                ).fetchall(),
+                [(i, 50 + i % 10) for i in range(self.samples)],
+            )
+        self.assertTrue(
+            (self.root / "shards/shard-000000.tar").samefile(
+                self.source / "shards/a.tar"
+            )
+        )
         with self.assertRaises(FileExistsError):
             merge_packed.merge_indices([self.source], self.root)
 
@@ -130,6 +151,56 @@ class MergeTests(unittest.TestCase):
         )
         self.assert_rejected("Missing sample metadata")
 
+    def test_missing_indexed_length_does_not_publish_partial_index(self):
+        self.change("DELETE FROM sequence_lengths WHERE pair_id=?", (self.samples - 1,))
+        self.assert_rejected("Missing or invalid sequence length")
+
+    def test_legacy_lengths_from_metadata_and_fasta(self):
+        self.change("DROP TABLE sequence_lengths")
+        self.change("DROP TABLE sequence_length_stats")
+        self.change(
+            "UPDATE sample_metadata SET metadata_json=? WHERE candidate_id>0",
+            (json.dumps({"alignment_columns": 17}),),
+        )
+        payload = b">first\r\nAC\r\n--A\r\n>second\r\nC\r\n"
+        self.change("UPDATE pairs SET sequence_size=? WHERE id=0", (len(payload),))
+        with (self.source / "shards/a.tar").open("r+b") as handle:
+            handle.seek(1536)
+            handle.write(payload)
+        merge_packed.merge_indices([self.source], self.root)
+        with closing(sqlite3.connect(self.root / "index.sqlite3")) as db:
+            self.assertEqual(
+                db.execute(
+                    "SELECT * FROM sequence_lengths ORDER BY pair_id LIMIT 2"
+                ).fetchall(),
+                [(0, 5), (1, 17)],
+            )
+            self.assertEqual(
+                db.execute("SELECT * FROM sequence_length_stats").fetchall(), [(17,)]
+            )
+
+    def test_existing_shards_not_touched(self):
+        destination = self.root / "shards"
+        destination.mkdir()
+        marker = destination / "keep.tar"
+        marker.write_bytes(b"existing data")
+        with self.assertRaises(FileExistsError):
+            merge_packed.merge_indices([self.source], self.root)
+        self.assertEqual(marker.read_bytes(), b"existing data")
+
+    def test_summary_removed_if_index_publication_fails(self):
+        real_link = merge_packed.os.link
+
+        def link(source, destination):
+            if Path(destination).name == "index.sqlite3":
+                raise OSError("Index publication failed")
+            return real_link(source, destination)
+
+        with patch.object(merge_packed.os, "link", side_effect=link):
+            with self.assertRaisesRegex(OSError, "Index publication failed"):
+                merge_packed.merge_indices([self.source], self.root)
+        self.assertEqual(list(self.root.iterdir()), [self.source.parent])
+
     def test_unsafe_paths_rejected(self):
         for path in ("../outside.tar", "/absolute.tar"):
             with self.subTest(path=path):
@@ -141,7 +212,7 @@ class MergeTests(unittest.TestCase):
             shard = self.source / "shards/a.tar"
             shard.unlink()
             shard.symlink_to(Path(outside) / "outside.tar")
-            self.assert_rejected("not in the subpath|is not a subpath")
+            self.assert_rejected("Shard path escapes source directory")
 
 
 if __name__ == "__main__":

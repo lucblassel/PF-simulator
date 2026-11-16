@@ -94,7 +94,7 @@ def packed_snapshot(root: Path) -> dict[str, tuple[bytes, bytes, dict]]:
     """Independently check tar headers and direct-offset payloads, including metadata."""
     snapshot = {}
     members = {}
-    for path in root.rglob("*.tar"):
+    for path in (root / "shards").glob("*.tar"):
         with tarfile.open(path) as archive:
             assert path.stat().st_size % 512 == 0
             with path.open("rb") as stream:
@@ -110,7 +110,10 @@ def packed_snapshot(root: Path) -> dict[str, tuple[bytes, bytes, dict]]:
         assert db.execute("PRAGMA user_version").fetchone()[0] == 3
         rows = list(db.execute("SELECT * FROM pairs ORDER BY id"))
         assert [row[0] for row in rows] == list(range(len(rows)))
-        for _, name, shard, tree_name, tree_offset, tree_size, sequence_name, sequence_offset, sequence_size in rows:
+        lengths = dict(db.execute("SELECT pair_id, max_sequence_length FROM sequence_lengths"))
+        assert len(lengths) == len(rows)
+        assert db.execute("SELECT max_sequence_length FROM sequence_length_stats").fetchall() == [(max(lengths.values(), default=0),)]
+        for pair_id, name, shard, tree_name, tree_offset, tree_size, sequence_name, sequence_offset, sequence_size in rows:
             with (root / shard).open("rb") as handle:
                 handle.seek(tree_offset)
                 tree = handle.read(tree_size)
@@ -120,10 +123,13 @@ def packed_snapshot(root: Path) -> dict[str, tuple[bytes, bytes, dict]]:
             assert members[shard].pop(sequence_name) == (sequence_offset, sequence_size, sequence)
             candidate, metadata = db.execute("SELECT candidate_id, metadata_json FROM sample_metadata WHERE name=?", (name,)).fetchone()
             metadata = json.loads(metadata)
-            worker = re.search(r"worker-(\d+)-shard-\d+\.tar$", Path(shard).name).group(1)
             prefix = metadata["sample"].removesuffix(f"sample_{candidate:06}")
+            worker = re.search(r"worker-(\d+)-sample_\d+\.nwk$", tree_name).group(1)
             assert tree_name == f"trees/{prefix}worker-{worker}-sample_{candidate:06}.nwk"
             assert sequence_name == f"sequences/{prefix}worker-{worker}-sample_{candidate:06}.fa"
+            assert lengths[pair_id] == max(
+                len(b"".join(record.splitlines()[1:])) for record in sequence.split(b">")[1:]
+            )
             assert candidate == metadata["candidate_id"]
             snapshot[name] = (tree, sequence, metadata)
         assert all(not entries for entries in members.values())
@@ -294,13 +300,33 @@ class SimulationTests(unittest.TestCase):
                 expected.update({f"{batch}/{name}": row for name, row in packed_snapshot(output).items()})
             original = {path: path.read_bytes() for path in root.rglob("*.tar")}
             script = Path(__file__).resolve().parents[1] / "scripts" / "merge_packed.py"
-            result = subprocess.run([sys.executable, str(script), *map(str, batches), "--out", str(root)],
+            merged = root / "merged"
+            result = subprocess.run([sys.executable, str(script), *map(str, batches), "--out", str(merged)],
                                     capture_output=True, text=True, timeout=30)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertEqual(packed_snapshot(root), expected)
-            self.assertEqual({path: path.read_bytes() for path in root.rglob("*.tar")}, original)
-            with closing(sqlite3.connect(root / "index.sqlite3")) as db:
-                self.assertEqual(db.execute("SELECT COUNT(*) FROM batches").fetchone()[0], 2)
+            self.assertEqual(packed_snapshot(merged), expected)
+            self.assertEqual({path: path.read_bytes() for path in (root / "batches").rglob("*.tar")}, original)
+            self.assertEqual(
+                {path.name for path in merged.iterdir()},
+                {"index.sqlite3", "shards", "simulation_summary.json"},
+            )
+            originals = [
+                json.loads((batch / "simulation_summary.json").read_text())
+                for batch in batches
+            ]
+            self.assertEqual(
+                json.loads((merged / "simulation_summary.json").read_text()),
+                {"written_samples": len(expected), "batches": originals},
+            )
+            self.assertCountEqual(
+                [path.stat().st_ino for path in (merged / "shards").iterdir()],
+                [path.stat().st_ino for path in original],
+            )
+            with closing(sqlite3.connect(merged / "index.sqlite3")) as db:
+                self.assertEqual(
+                    [json.loads(row[0]) for row in db.execute("SELECT summary_json FROM batches ORDER BY batch_id")],
+                    originals,
+                )
             duplicate = root / "batches" / "duplicate"
             run(duplicate, *options, "--seed", "3", "--batch-id", "a")
             result = subprocess.run([sys.executable, str(script), str(batches[0]), str(duplicate), "--out", str(root / "batches")],

@@ -123,6 +123,7 @@ impl PackedWriter {
         name: &str,
         tree: &[u8],
         sequence: &[u8],
+        max_sequence_length: usize,
         metadata: &Value,
     ) -> io::Result<()> {
         let footprint = 1024
@@ -191,6 +192,14 @@ impl PackedWriter {
             .map_err(io::Error::other)?
             .execute(params![name, integer(candidate)?, metadata.to_string()])
             .map_err(io::Error::other)?;
+        self.db
+            .prepare_cached("INSERT INTO sequence_lengths VALUES (?, ?)")
+            .map_err(io::Error::other)?
+            .execute(params![
+                integer(self.count)?,
+                integer(max_sequence_length as u64)?
+            ])
+            .map_err(io::Error::other)?;
         self.count += 1;
         Ok(())
     }
@@ -199,14 +208,24 @@ impl PackedWriter {
         if let Some(shard) = self.shard.take() {
             shard.finish(&self.root)?;
         }
+        index_maximum(&self.db)?;
         finish_database(self.db, &self.index)
     }
+}
+
+fn index_maximum(db: &Connection) -> io::Result<()> {
+    db.execute(
+        "INSERT INTO sequence_length_stats SELECT COALESCE(MAX(max_sequence_length), 0) FROM sequence_lengths",
+        [],
+    )
+    .map_err(io::Error::other)?;
+    Ok(())
 }
 
 /// Merge only index rows; worker-prefixed tar files stay in the shared shards directory.
 pub(crate) fn merge_workers(root: &Path, workers: u64, expected: u64) -> io::Result<()> {
     let db = database(&root.join(INDEX))?;
-    db.execute_batch("CREATE TEMP TABLE incoming AS SELECT pairs.*, sample_metadata.candidate_id, sample_metadata.metadata_json FROM pairs JOIN sample_metadata USING(name);")
+    db.execute_batch("CREATE TEMP TABLE incoming AS SELECT pairs.*, sample_metadata.candidate_id, sample_metadata.metadata_json, sequence_lengths.max_sequence_length FROM pairs JOIN sample_metadata USING(name) JOIN sequence_lengths ON pair_id = pairs.id;")
         .map_err(io::Error::other)?;
     for worker in 0..workers {
         let source = Connection::open_with_flags(
@@ -214,17 +233,17 @@ pub(crate) fn merge_workers(root: &Path, workers: u64, expected: u64) -> io::Res
             OpenFlags::SQLITE_OPEN_READ_ONLY,
         )
         .map_err(io::Error::other)?;
-        let mut statement = source.prepare("SELECT p.*, m.candidate_id, m.metadata_json FROM pairs p JOIN sample_metadata m USING(name) ORDER BY p.id")
+        let mut statement = source.prepare("SELECT p.*, m.candidate_id, m.metadata_json, l.max_sequence_length FROM pairs p JOIN sample_metadata m USING(name) JOIN sequence_lengths l ON l.pair_id = p.id ORDER BY p.id")
             .map_err(io::Error::other)?;
         let mut rows = statement.query([]).map_err(io::Error::other)?;
         while let Some(row) = rows.next().map_err(io::Error::other)? {
             let shard: String = row.get(2).map_err(io::Error::other)?;
-            let mut values = (0..11)
+            let mut values = (0..12)
                 .map(|column| row.get::<_, rusqlite::types::Value>(column))
                 .collect::<rusqlite::Result<Vec<_>>>()
                 .map_err(io::Error::other)?;
             values[2] = format!("shards/{shard}").into();
-            db.prepare_cached("INSERT INTO incoming VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+            db.prepare_cached("INSERT INTO incoming VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
                 .map_err(io::Error::other)?
                 .execute(rusqlite::params_from_iter(values))
                 .map_err(io::Error::other)?;
@@ -232,6 +251,7 @@ pub(crate) fn merge_workers(root: &Path, workers: u64, expected: u64) -> io::Res
     }
     db.execute_batch("INSERT INTO pairs SELECT ROW_NUMBER() OVER (ORDER BY candidate_id) - 1, name, shard, tree_name, tree_offset, tree_size, sequence_name, sequence_offset, sequence_size FROM incoming;
         INSERT INTO sample_metadata SELECT name, candidate_id, metadata_json FROM incoming;
+        INSERT INTO sequence_lengths SELECT pairs.id, incoming.max_sequence_length FROM pairs JOIN incoming USING(name);
         DROP TABLE incoming;") .map_err(io::Error::other)?;
     let count: i64 = db
         .query_row("SELECT COUNT(*) FROM pairs", [], |row| row.get(0))
@@ -241,6 +261,7 @@ pub(crate) fn merge_workers(root: &Path, workers: u64, expected: u64) -> io::Res
             "Packed index has {count} pairs, expected {expected}"
         )));
     }
+    index_maximum(&db)?;
     finish_database(db, &root.join(INDEX))?;
     for worker in 0..workers {
         fs::remove_file(root.join("shards").join(worker_index_name(worker)))?;
@@ -346,6 +367,7 @@ mod tests {
                 "sample_000000",
                 b"(T1,T2);",
                 b">T1\nA\n>T2\nC\n",
+                1,
                 &serde_json::json!({}),
             )
             .unwrap();
@@ -364,6 +386,7 @@ mod tests {
                 "sample_000001",
                 b"(T1,T2);",
                 b">T1\nG\n>T2\nT\n",
+                1,
                 &serde_json::json!({}),
             )
             .unwrap();
