@@ -137,6 +137,27 @@ def packed_snapshot(root: Path) -> dict[str, tuple[bytes, bytes, dict]]:
 
 
 class SimulationTests(unittest.TestCase):
+    def test_mean_one_indels_can_add_a_single_column(self) -> None:
+        # With insertions only, if each event inserts two sites, every alignment
+        # gains an even number of columns. Exercise both callers of the shared
+        # geometric sampler at its deterministic boundary.
+        with tempfile.TemporaryDirectory() as directory:
+            for distribution in ("GEO{1}", "NB{1}"):
+                with self.subTest(distribution=distribution):
+                    output = Path(directory) / distribution
+                    run(
+                        output, "--samples", "32", "--tips", "5", "--length", "60",
+                        "--model", "JC", "--seqtype", "DNA", "--seed", "42",
+                        "--allow-duplicate-sequences", "--indel", "0.03,0",
+                        "--indel-size", f"{distribution},{distribution}",
+                    )
+                    widths = [
+                        json.loads(path.read_text())["alignment_columns"]
+                        for path in (output / "metadata").glob("*.json")
+                    ]
+                    self.assertEqual(len(widths), 32)
+                    self.assertIn(61, widths)
+
     def test_packed_outputs_offsets_rotation_and_worker_determinism(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
